@@ -4,23 +4,26 @@ from __future__ import annotations
 from pathlib import Path
 
 from models.menu import Menu
-from models.widgets import Widget
+from models.widgets import Widget, separator
 from models.components import Text, ItemComponents
 from builders.snbt import item_replace_command
 from builders.paths import menu_dir
 
 
 def _cart(menu: Menu) -> str:
+    # No distance limit — player can walk while the GUI is open; the cart is
+    # always teleported to them in tick. Limiting by distance caused fill to
+    # miss the cart and leave empty / broken slots.
     return (
-        f'@e[type={menu.container.entity_id},tag={menu.tag},'
-        f'distance=..8,sort=nearest,limit=1]'
+        f"@e[type={menu.container.entity_id},tag={menu.tag},"
+        f"sort=nearest,limit=1]"
     )
 
 
 def generate_fill_router(menu: Menu, out: Path) -> None:
+    # Every slot is overwritten by fill_page (widgets + pad panes).
     lines = [
-        "# Auto-generated – clear slots then route to current page",
-        f"execute as {_cart(menu)} run data modify entity @s Items set value []",
+        "# Auto-generated – route to current page (every slot is overwritten)",
         "",
     ]
     for page in menu.pages:
@@ -50,35 +53,25 @@ def _emit_toggle(menu: Menu, w: Widget) -> list[str]:
 
 
 def _emit_progress(menu: Menu, w: Widget) -> list[str]:
-    """
-    For each cell i in [0, width):
-      if score >= (i+1)/width * max  → full item else empty item
-    Approximate with integer thresholds.
-    """
     assert w.progress_score and w.progress_width and w.progress_max
     lines = []
     width = w.progress_width
     mx = w.progress_max
     for i in range(width):
         slot = w.slot + i
-        # threshold: cell i is full when score >= ceil((i+1)*max/width)
-        # use: score >= (i * max // width) + 1  roughly
         threshold = (i * mx) // width
-        # empty by default
         empty_comps = ItemComponents(
             custom_name=w.name or Text(" "),
-            custom_data={"guigen": {"ui": 1}},
+            custom_data=w.gui_custom_data(cell_slot=slot),
         )
         full_comps = ItemComponents(
             custom_name=w.name or Text(" "),
-            custom_data={"guigen": {"ui": 1}},
+            custom_data=w.gui_custom_data(cell_slot=slot),
         )
         empty_cmd = item_replace_command(_cart(menu), slot, w.progress_empty_item, empty_comps)
         full_cmd = item_replace_command(_cart(menu), slot, w.progress_full_item, full_comps)
-        # always place empty first, then override with full if score high enough
         lines.append(empty_cmd)
         if i == 0:
-            # first cell full when score >= 1
             lines.append(
                 f"execute if score @s {w.progress_score} matches 1.. run {full_cmd}"
             )
@@ -89,12 +82,15 @@ def _emit_progress(menu: Menu, w: Widget) -> list[str]:
     return lines
 
 
-def _emit_counter_display(menu: Menu, w: Widget) -> list[str]:
-    """Counter widget itself is the clickable +/- ; display is optional via label."""
-    return _emit_static(menu, w)
+def _page_occupied(page_widgets: list[Widget]) -> set[int]:
+    occ: set[int] = set()
+    for w in page_widgets:
+        occ.update(w.occupied_slots())
+    return occ
 
 
 def generate_page_fills(menu: Menu, out: Path) -> None:
+    slots = menu.container.slot_count
     for page in menu.pages:
         lines = [f"# Page {page.index} – {page.name}", ""]
         for w in page.widgets:
@@ -106,5 +102,16 @@ def generate_page_fills(menu: Menu, out: Path) -> None:
             else:
                 lines.extend(_emit_static(menu, w))
             lines.append("")
+
+        occupied = _page_occupied(page.widgets)
+        pads = [s for s in range(slots) if s not in occupied]
+        if pads:
+            lines.append("# Locked filler panes (no empty slots)")
+            for s in pads:
+                pad = separator(s)
+                pad.action_id = f"pad_{page.index}_{s}"
+                lines.append(item_replace_command(_cart(menu), s, pad.item, pad.components()))
+            lines.append("")
+
         path = menu_dir(out, menu) / f"fill_page{page.index}.mcfunction"
         path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")

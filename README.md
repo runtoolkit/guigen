@@ -7,8 +7,21 @@ Declarative Minecraft inventory-GUI datapack generator.
 ```
 custom_name={text:"Heal & Feed",italic:false,color:"green"}
 lore=[{text:"...",italic:false,color:"gray"}]
-custom_data={guigen:{action:"heal"}}
+custom_data={guigen:{widget:1,type:"button",id:"heal"}}
+max_stack_size=1
 ```
+
+Every widget item carries unique `custom_data`:
+
+| Field    | Meaning                                      |
+|----------|----------------------------------------------|
+| `widget` | `1` – GUI item (opener book does **not** have this) |
+| `type`   | Widget kind (`button`, `label`, `toggle`, …) |
+| `id`     | Unique action / slot id                      |
+
+Tick `clear` commands match `type` + `id` (item id is ignored), so taking a
+widget out of the cart always vacuums it from the player and the layout is
+restored next tick. Unused slots are filled with locked separator panes.
 
 ## Layout
 

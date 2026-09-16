@@ -23,5 +23,12 @@ def tags_dir(out_dir: Path) -> Path:
 
 
 def ensure_dirs(out_dir: Path, menu: Menu) -> None:
-    menu_dir(out_dir, menu).mkdir(parents=True, exist_ok=True)
+    """Create required directories and remove stale generated files from previous runs."""
+    mdir = menu_dir(out_dir, menu)
+    mdir.mkdir(parents=True, exist_ok=True)
     tags_dir(out_dir).mkdir(parents=True, exist_ok=True)
+
+    # Clear old .mcfunction files in the menu folder so removed widgets/actions
+    # (and their on_click_*, fill_page* etc.) do not linger after regeneration.
+    for f in mdir.glob("*.mcfunction"):
+        f.unlink(missing_ok=True)

@@ -3,11 +3,19 @@ Widget system for the GUI generator.
 
 Widgets are the building blocks placed into container slots.
 Names / lore are always Text objects → SNBT objects (never stringified JSON).
+
+Every GUI item carries unique custom_data:
+
+    custom_data={guigen:{widget:1,type:"button",id:"heal"}}
+
+`type` is the widget kind; `id` is unique per action/slot. Tick `clear`
+commands match these fields (any item id) so stolen / shift-clicked widgets
+are always removed from the player.
 """
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 from .components import Text, ItemComponents
 
@@ -59,7 +67,7 @@ WidgetKind = Literal[
     "nav",         # page change
     "progress",    # multi-slot bar driven by a score
     "close",       # close menu
-    "confirm",     # jump to confirm page
+    "confirm",     # jump to a confirm page
 ]
 
 
@@ -100,36 +108,47 @@ class Widget:
             return self.action_id
         return f"{self.kind}_{self.slot}"
 
-    def components(self, action: str | None = None) -> ItemComponents:
-        act = action or self.resolved_action_id()
-        data: dict[str, Any] = {}
-        if self.clickable and self.kind not in ("label", "separator", "progress"):
-            data = {"guigen": {"action": act}}
-        elif self.kind in ("label", "separator"):
-            # mark as gui item so dropped-item cleanup still works, but no action
-            data = {"guigen": {"ui": 1}}
-        else:
-            data = {"guigen": {"action": act}}
+    def occupied_slots(self) -> list[int]:
+        if self.kind == "progress":
+            return list(range(self.slot, self.slot + max(1, self.progress_width)))
+        return [self.slot]
+
+    def gui_custom_data(self, *, cell_slot: int | None = None) -> dict[str, Any]:
+        """Unique per-widget (and per progress cell) custom_data payload."""
+        wid = self.resolved_action_id()
+        if cell_slot is not None:
+            wid = f"{wid}_s{cell_slot}"
+        return {
+            "guigen": {
+                "widget": 1,
+                "type": self.kind,
+                "id": wid,
+            }
+        }
+
+    def components(self, action: str | None = None, *, cell_slot: int | None = None) -> ItemComponents:
+        # `action` kept for call-site compat; id always comes from resolved_action_id
+        _ = action
         return ItemComponents(
             custom_name=self.name,
             lore=list(self.lore),
-            custom_data=data,
+            custom_data=self.gui_custom_data(cell_slot=cell_slot),
         )
 
     def components_for_toggle(self, state: int) -> tuple[str, ItemComponents]:
         assert self.toggle is not None
         t = self.toggle
-        act = self.resolved_action_id()
+        data = self.gui_custom_data()
         if state == 0:
             return t.off_item, ItemComponents(
                 custom_name=t.off_name,
                 lore=list(t.off_lore),
-                custom_data={"guigen": {"action": act}},
+                custom_data=data,
             )
         return t.on_item, ItemComponents(
             custom_name=t.on_name,
             lore=list(t.on_lore),
-            custom_data={"guigen": {"action": act}},
+            custom_data=data,
         )
 
     def is_interactive(self) -> bool:
@@ -167,6 +186,7 @@ def label(slot: int, item: str, name: Text, lore: list[Text] | None = None) -> W
         slot=slot,
         kind="label",
         item=item,
+        action_id=f"label_{slot}",
         name=name,
         lore=lore or [],
         clickable=False,
@@ -178,6 +198,7 @@ def separator(slot: int, item: str = "minecraft:gray_stained_glass_pane") -> Wid
         slot=slot,
         kind="separator",
         item=item,
+        action_id=f"separator_{slot}",
         name=Text(" ", color="dark_gray"),
         clickable=False,
     )

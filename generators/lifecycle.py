@@ -6,15 +6,18 @@ from pathlib import Path
 
 from models.menu import Menu
 from builders.paths import menu_dir, ns_functions, tags_dir
+from builders.snbt import clear_all_widgets, item_air_command
 
 
 def generate_load(menu: Menu, out: Path) -> None:
     lines = ["# Auto-generated load"]
     for score in menu.collect_scores():
         lines.append(f"scoreboard objectives add {score} dummy")
+    cart = f"@e[type={menu.container.entity_id},tag={menu.tag}]"
     lines += [
         "",
-        f"kill @e[type={menu.container.entity_id},tag={menu.tag}]",
+        f"execute as {cart} run data modify entity @s Items set value []",
+        f"kill {cart}",
         "",
         'tellraw @a [{"text":"[GUI-GENERATOR] ","color":"gray"},'
         f'{{"text":"Loaded. /function {menu.function_prefix}/open","color":"green"}}]',
@@ -26,7 +29,10 @@ def generate_load(menu: Menu, out: Path) -> None:
 
 
 def generate_open(menu: Menu, out: Path) -> None:
-    nbt = menu.container.summon_nbt([f"{menu.namespace}.menu", menu.tag])
+    nbt = menu.container.summon_nbt(
+        [f"{menu.namespace}.menu", menu.tag],
+        custom_name=menu.display_name,
+    )
     lines = [
         "# Auto-generated open",
         f"function {menu.function_prefix}/close",
@@ -57,7 +63,7 @@ def generate_open(menu: Menu, out: Path) -> None:
         f"scoreboard players set @s guigen_menu_timer {menu.timer_ticks}",
         "",
         'tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},'
-        '{"text":"Menu opened. SHIFT-click buttons.","color":"yellow"}]',
+        '{"text":"Menu opened. Right-click the cart, then SHIFT-click buttons.","color":"yellow"}]',
         "",
     ]
     (menu_dir(out, menu) / "open.mcfunction").write_text(
@@ -66,9 +72,18 @@ def generate_open(menu: Menu, out: Path) -> None:
 
 
 def generate_close(menu: Menu, out: Path) -> None:
+    # No distance filter — always find the tagged cart wherever it is.
+    cart = f"@e[type={menu.container.entity_id},tag={menu.tag},sort=nearest,limit=1]"
     lines = [
         "# Auto-generated close",
-        f"kill @e[type={menu.container.entity_id},tag={menu.tag},distance=..8,sort=nearest,limit=1]",
+        "# Empty slots first so kill does not drop GUI items",
+    ]
+    for slot in range(menu.container.slot_count):
+        lines.append(f"execute as {cart} run {item_air_command('@s', slot)}")
+    lines += [
+        f"kill @e[type={menu.container.entity_id},tag={menu.tag}]",
+        clear_all_widgets(),
+        "clear @s *[custom_data~{guigen:{widget:1}}]",
         "scoreboard players reset @s guigen_menu_timer",
         "scoreboard players reset @s guigen_page",
         "",

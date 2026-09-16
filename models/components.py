@@ -45,6 +45,7 @@ class ItemComponents:
     custom_name: Text | None = None
     lore: list[Text] = field(default_factory=list)
     custom_data: dict[str, Any] = field(default_factory=dict)
+    max_stack_size: int = 1
 
     def to_snbt_suffix(self) -> str:
         """Returns the [component=...,component=...] part (without brackets if empty)."""
@@ -56,6 +57,8 @@ class ItemComponents:
             parts.append(f"lore={lore_snbt}")
         if self.custom_data:
             parts.append(f"custom_data={_dict_to_snbt(self.custom_data)}")
+        if self.max_stack_size != 64:
+            parts.append(f"max_stack_size={self.max_stack_size}")
         if not parts:
             return ""
         return "[" + ",".join(parts) + "]"

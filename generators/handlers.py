@@ -72,8 +72,16 @@ def _handler_for(menu: Menu, w: Widget) -> list[str]:
         s = w.counter_score
         d = w.counter_delta
         mn, mx = w.counter_min, w.counter_max
+        # `scoreboard players add` only accepts non-negative literals in
+        # vanilla syntax; a negative delta must go through `remove` with
+        # its absolute value instead, or the command is invalid.
+        step_cmd = (
+            f"scoreboard players add @s {s} {d}"
+            if d >= 0
+            else f"scoreboard players remove @s {s} {abs(d)}"
+        )
         lines += [
-            f"scoreboard players add @s {s} {d}",
+            step_cmd,
             # clamp
             f"execute if score @s {s} matches {mx + 1}.. run scoreboard players set @s {s} {mx}",
             f"execute if score @s {s} matches ..{mn - 1} run scoreboard players set @s {s} {mn}",
@@ -87,12 +95,13 @@ def _handler_for(menu: Menu, w: Widget) -> list[str]:
     # button with optional condition
     if w.condition is not None:
         cond = w.condition
+        fail = cond.fail_message or Text("Condition failed.", color="red")
+
         if cond.type == "item_count_lt":
             assert cond.item and cond.max_count is not None
             lines.append(
                 f"execute store result score @s guigen_tmp run clear @s {cond.item} 0"
             )
-            fail = cond.fail_message or Text("Condition failed.", color="red")
             lines.append(
                 f"execute if score @s guigen_tmp matches {cond.max_count}.. run {_tellraw_line(fail)}"
             )
@@ -105,13 +114,31 @@ def _handler_for(menu: Menu, w: Widget) -> list[str]:
                     f"execute if score @s guigen_tmp matches ..{cond.max_count - 1} run "
                     + _tellraw_line(w.success_message)
                 )
+
+        elif cond.type == "item_count_gte":
+            assert cond.item and cond.min_count is not None
+            lines.append(
+                f"execute store result score @s guigen_tmp run clear @s {cond.item} 0"
+            )
+            lines.append(
+                f"execute if score @s guigen_tmp matches ..{cond.min_count - 1} run {_tellraw_line(fail)}"
+            )
+            for c in w.commands:
+                lines.append(
+                    f"execute if score @s guigen_tmp matches {cond.min_count}.. run {c}"
+                )
+            if w.success_message:
+                lines.append(
+                    f"execute if score @s guigen_tmp matches {cond.min_count}.. run "
+                    + _tellraw_line(w.success_message)
+                )
+
         elif cond.type == "score":
             assert cond.score and cond.matches is not None
             for c in w.commands:
                 lines.append(
                     f"execute if score @s {cond.score} matches {cond.matches} run {c}"
                 )
-            fail = cond.fail_message or Text("Condition failed.", color="red")
             lines.append(
                 f"execute unless score @s {cond.score} matches {cond.matches} run {_tellraw_line(fail)}"
             )
@@ -120,6 +147,38 @@ def _handler_for(menu: Menu, w: Widget) -> list[str]:
                     f"execute if score @s {cond.score} matches {cond.matches} run "
                     + _tellraw_line(w.success_message)
                 )
+
+        elif cond.type == "has_tag":
+            assert cond.tag is not None
+            for c in w.commands:
+                lines.append(f"execute if entity @s[tag={cond.tag}] run {c}")
+            lines.append(
+                f"execute unless entity @s[tag={cond.tag}] run {_tellraw_line(fail)}"
+            )
+            if w.success_message:
+                lines.append(
+                    f"execute if entity @s[tag={cond.tag}] run {_tellraw_line(w.success_message)}"
+                )
+
+        elif cond.type == "gamemode":
+            assert cond.gamemode is not None
+            for c in w.commands:
+                lines.append(f"execute if entity @s[gamemode={cond.gamemode}] run {c}")
+            lines.append(
+                f"execute unless entity @s[gamemode={cond.gamemode}] run {_tellraw_line(fail)}"
+            )
+            if w.success_message:
+                lines.append(
+                    f"execute if entity @s[gamemode={cond.gamemode}] run {_tellraw_line(w.success_message)}"
+                )
+
+        else:
+            # unknown condition type – still run commands (no guard)
+            for c in w.commands:
+                lines.append(c)
+            if w.success_message:
+                lines.append(_tellraw_line(w.success_message))
+
         lines.append(f"function {menu.function_prefix}/fill")
         return lines
 

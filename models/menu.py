@@ -10,6 +10,10 @@ from .widgets import Widget
 ContainerType = Literal["chest_minecart", "hopper_minecart"]
 
 
+def _escape_snbt_string(s: str) -> str:
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
 @dataclass
 class Container:
     """
@@ -30,7 +34,7 @@ class Container:
     def slot_count(self) -> int:
         return 5 if self.type == "hopper_minecart" else 27
 
-    def summon_nbt(self, tags: list[str]) -> str:
+    def summon_nbt(self, tags: list[str], custom_name: str | None = None) -> str:
         tag_list = ",".join(f'"{t}"' for t in tags)
         flags = []
         if self.invulnerable:
@@ -39,6 +43,11 @@ class Container:
             flags.append("NoGravity:1b")
         if self.silent:
             flags.append("Silent:1b")
+        flags.append("CustomNameVisible:0b")
+        if custom_name:
+            flags.append(
+                f'CustomName={{text:"{_escape_snbt_string(custom_name)}",italic:false}}'
+            )
         flags.append(f"Tags:[{tag_list}]")
         return "{" + ",".join(flags) + "}"
 
