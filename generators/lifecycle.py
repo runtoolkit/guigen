@@ -124,8 +124,8 @@ def generate_pack_mcmeta(out: Path, description: str) -> None:
     data = {
         "pack": {
             "description": description,
-            "min_format": 119,
-            "max_format": 119,
+            "min_format": 121,
+            "max_format": 121,
         }
     }
     (out / "pack.mcmeta").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
