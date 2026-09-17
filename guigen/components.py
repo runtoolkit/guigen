@@ -113,7 +113,7 @@ def custom_data_predicate(fields: dict[str, Any]) -> str:
         else:
             inner_parts.append(f"{k}:{v}")
     inner = ",".join(inner_parts)
-    return f"*[custom_data~{{guigen:{{{inner}}}}}]"
+    return f"*[custom_data~{{guigenmc:{{{inner}}}}}]"
 
 
 def clear_by_type_id(widget_type: str, widget_id: str, count: int | None = 1) -> str:
@@ -129,4 +129,4 @@ def clear_by_type(widget_type: str) -> str:
 
 
 def clear_all_widgets() -> str:
-    return "clear @s *[custom_data~{guigen:{widget:1}}]"
+    return "clear @s *[custom_data~{guigenmc:{widget:1}}]"

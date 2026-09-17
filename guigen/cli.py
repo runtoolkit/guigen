@@ -1,4 +1,4 @@
-"""guigen CLI — easy, colorful, Codespaces / Linux / macOS / GitHub Actions friendly."""
+"""guigenmc CLI — easy, colorful, Codespaces / Linux / macOS / GitHub Actions friendly."""
 
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ def info(msg: str) -> None:
 
 
 def header(msg: str) -> None:
-    print(f"\n{C.BOLD}{C.MAGENTA}● guigen{C.RESET} {C.DIM}{msg}{C.RESET}")
+    print(f"\n{C.BOLD}{C.MAGENTA}● guigenmc{C.RESET} {C.DIM}{msg}{C.RESET}")
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +210,7 @@ def _static_dir() -> Path:
     return Path(__file__).resolve().parent / "static"
 
 
-class GuigenHandler(SimpleHTTPRequestHandler):
+class guigenmcHandler(SimpleHTTPRequestHandler):
     """Serve the web UI + JSON API that uses the Python generator."""
 
     def __init__(self, *args: Any, directory: str | None = None, **kwargs: Any) -> None:
@@ -334,7 +334,7 @@ def cmd_ui(args: argparse.Namespace) -> int:
 
     host = args.host
     port = int(args.port)
-    handler = partial(GuigenHandler, directory=str(static))
+    handler = partial(guigenmcHandler, directory=str(static))
 
     try:
         server = ThreadingHTTPServer((host, port), handler)
@@ -366,20 +366,20 @@ def cmd_ui(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="guigen",
+        prog="guigenmc",
         description="JSON → Minecraft GUI datapack generator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
 {C.BOLD}Quick start:{C.RESET}
 
-  guigen ui                          # open the visual editor in your browser
-  guigen generate my_menu.json       # build datapack from a JSON file
-  guigen generate my_menu.json -z    # build a .zip instead
+  guigenmc ui                          # open the visual editor in your browser
+  guigenmc generate my_menu.json       # build datapack from a JSON file
+  guigenmc generate my_menu.json -z    # build a .zip instead
 
 {C.DIM}Works on Linux, macOS, GitHub Codespaces & GitHub Actions.{C.RESET}
 """,
     )
-    p.add_argument("-v", "--version", action="version", version=f"guigen {__version__}")
+    p.add_argument("-v", "--version", action="version", version=f"guigenmc {__version__}")
 
     sub = p.add_subparsers(dest="command", metavar="COMMAND")
 
@@ -423,7 +423,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.command:
         parser.print_help()
         print()
-        info(f"Tip: open the editor with  {C.CYAN}guigen ui{C.RESET}")
+        info(f"Tip: open the editor with  {C.CYAN}guigenmc ui{C.RESET}")
         return 0
 
     return int(args.func(args))

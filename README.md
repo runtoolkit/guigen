@@ -1,4 +1,4 @@
-# ● guigen
+# ● guigenmc
 
 **JSON → Minecraft GUI datapack** generator.
 
@@ -16,11 +16,11 @@ No extra packages — Python 3.9+ only.
 pip install -e .
 
 # Visual editor (browser)
-guigen ui
+guigenmc ui
 
 # Or from a JSON file
-guigen generate my_menu.json
-guigen generate my_menu.json -z    # zip
+guigenmc generate my_menu.json
+guigenmc generate my_menu.json -z    # zip
 ```
 
 In Minecraft:
@@ -36,24 +36,24 @@ In Minecraft:
 
 | Command | What it does |
 |---------|--------------|
-| `guigen ui` | Open the visual web editor |
-| `guigen generate config.json` | Build datapack folder |
-| `guigen generate config.json -z` | Build a `.zip` |
-| `guigen generate config.json -o name` | Custom output name |
-| `guigen generate config.json -f` | Overwrite existing |
-| `guigen validate config.json` | Check errors / warnings |
-| `guigen tree config.json` | Preview file list (no write) |
-| `guigen -h` | Help |
+| `guigenmc ui` | Open the visual web editor |
+| `guigenmc generate config.json` | Build datapack folder |
+| `guigenmc generate config.json -z` | Build a `.zip` |
+| `guigenmc generate config.json -o name` | Custom output name |
+| `guigenmc generate config.json -f` | Overwrite existing |
+| `guigenmc validate config.json` | Check errors / warnings |
+| `guigenmc tree config.json` | Preview file list (no write) |
+| `guigenmc -h` | Help |
 
-Aliases: `guigen gen`, `guigen g`, `guigen check`.
+Aliases: `guigenmc gen`, `guigenmc g`, `guigenmc check`.
 
 ### UI options
 
 ```bash
-guigen ui                  # http://127.0.0.1:8765
-guigen ui -p 9000          # custom port
-guigen ui --host 0.0.0.0   # Codespaces / remote access
-guigen ui --no-open        # don't open browser
+guigenmc ui                  # http://127.0.0.1:8765
+guigenmc ui -p 9000          # custom port
+guigenmc ui --host 0.0.0.0   # Codespaces / remote access
+guigenmc ui --no-open        # don't open browser
 ```
 
 In Codespaces: use `--host 0.0.0.0` and open the forwarded port in the browser.
@@ -64,8 +64,8 @@ In Codespaces: use `--host 0.0.0.0` and open the forwarded port in the browser.
 
 Colored terminal output is on by default.
 
-- Off: `NO_COLOR=1 guigen generate …`
-- Force on: `FORCE_COLOR=1 guigen generate …`
+- Off: `NO_COLOR=1 guigenmc generate …`
+- Force on: `FORCE_COLOR=1 guigenmc generate …`
 
 ---
 
@@ -83,7 +83,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
-      - run: guigen generate my_menu.json -z -o datapack.zip
+      - run: guigenmc generate my_menu.json -z -o datapack.zip
       - uses: actions/upload-artifact@v4
         with:
           name: datapack

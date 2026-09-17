@@ -53,18 +53,18 @@ jobs:
 
       - name: Generate folder
         run: |
-          guigen generate menu.json -f
+          guigenmc generate menu.json -f
           test -f shop_datapack/pack.mcmeta
           test -f shop_datapack/data/demo/function/core/load.mcfunction
 
       - name: Generate zip + validate + tree
         run: |
-          guigen generate menu.json -z -f -o shop.zip
-          guigen validate menu.json
-          guigen tree menu.json
+          guigenmc generate menu.json -z -f -o shop.zip
+          guigenmc validate menu.json
+          guigenmc tree menu.json
 
       - name: UI static present
-        run: test -f $(python -c "import guigen, pathlib; print(pathlib.Path(guigen.__file__).parent / 'static' / 'index.html')")
+        run: test -f $(python -c "import guigenmc, pathlib; print(pathlib.Path(guigenmc.__file__).parent / 'static' / 'index.html')")
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7

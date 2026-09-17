@@ -1,4 +1,4 @@
-"""python -m guigen"""
+"""python -m guigenmc"""
 
 from .cli import main
 

@@ -3,13 +3,13 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "guigen"
+name = "guigenmc"
 version = "1.0.0"
 description = "JSON → Minecraft GUI datapack generator (CLI)"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-authors = [{ name = "guigen" }]
+authors = [{ name = "guigenmc" }]
 keywords = ["minecraft", "datapack", "gui", "generator"]
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -23,11 +23,11 @@ classifiers = [
 dependencies = []
 
 [project.scripts]
-guigen = "guigen.cli:main"
+guigenmc = "guigenmc.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["guigen*"]
+include = ["guigenmc*"]
 
 [tool.setuptools.package-data]
-guigen = ["static/*"]
+guigenmc = ["static/*"]

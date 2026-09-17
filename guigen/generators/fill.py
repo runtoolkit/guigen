@@ -31,7 +31,7 @@ def generate_fill_router(menu: dict[str, Any], out: dict[str, str]) -> None:
     lines = ["# Auto-generated – route to current page (every slot is overwritten)", ""]
     for page in menu["pages"]:
         lines.append(
-            f"execute if score @s guigen_page matches {page['index']} "
+            f"execute if score @s guigenmc_page matches {page['index']} "
             f"run function {menu_page_prefix(menu)}/{page['index']}"
         )
     out[f"{menu_dir_path(menu)}/fill.mcfunction"] = "\n".join(lines) + "\n"

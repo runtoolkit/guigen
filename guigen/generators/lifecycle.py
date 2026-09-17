@@ -60,7 +60,7 @@ def generate_open(menu: dict[str, Any], out: dict[str, str]) -> None:
         "",
         f"summon {container_entity_id(menu['container'])} ~ ~ ~ {nbt}",
         "",
-        "scoreboard players set @s guigen_page 0",
+        "scoreboard players set @s guigenmc_page 0",
     ]
     inited: set[str] = set()
     for w in all_widgets(menu):
@@ -81,7 +81,7 @@ def generate_open(menu: dict[str, Any], out: dict[str, str]) -> None:
     lines.extend(
         [
             f"function {menu_function_prefix(menu)}/fill",
-            f"scoreboard players set @s guigen_menu_timer {menu['timer_ticks']}",
+            f"scoreboard players set @s guigenmc_menu_timer {menu['timer_ticks']}",
             "",
             'tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},'
             '{"text":"Menu opened. Right-click the cart, then SHIFT-click buttons.","color":"yellow"}]',
@@ -103,9 +103,9 @@ def generate_close(menu: dict[str, Any], out: dict[str, str]) -> None:
         [
             f"kill @e[type={container_entity_id(menu['container'])},tag={menu_tag(menu)}]",
             clear_all_widgets(),
-            "clear @s *[custom_data~{guigen:{widget:1}}]",
-            "scoreboard players reset @s guigen_menu_timer",
-            "scoreboard players reset @s guigen_page",
+            "clear @s *[custom_data~{guigenmc:{widget:1}}]",
+            "scoreboard players reset @s guigenmc_menu_timer",
+            "scoreboard players reset @s guigenmc_page",
             "",
         ]
     )
@@ -122,7 +122,7 @@ def generate_give_opener(menu: dict[str, Any], out: dict[str, str]) -> None:
         "give @s minecraft:knowledge_book["
         f'custom_name={{text:"{name}",italic:false,color:"gold"}},'
         f'lore=[{{text:"{lore}",italic:false,color:"gray"}}],'
-        "custom_data={guigen:{opener:1b}}] 1",
+        "custom_data={guigenmc:{opener:1b}}] 1",
         "",
         'tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},'
         '{"text":"You received a Menu Key.","color":"gold"}]',

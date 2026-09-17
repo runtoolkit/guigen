@@ -56,7 +56,7 @@ def gui_custom_data(w: dict[str, Any], cell_slot: int | None = None) -> dict[str
     wid = resolved_action_id(w)
     if cell_slot is not None:
         wid = f"{wid}_s{cell_slot}"
-    return {"guigen": {"widget": 1, "type": w["kind"], "id": wid}}
+    return {"guigenmc": {"widget": 1, "type": w["kind"], "id": wid}}
 
 
 def widget_components(w: dict[str, Any], cell_slot: int | None = None) -> dict[str, Any]:
@@ -224,7 +224,7 @@ def interactive_widgets(m: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def collect_scores(m: dict[str, Any]) -> list[str]:
-    scores = ["guigen_menu_timer", "guigen_click", "guigen_page", "guigen_tmp", "guigen_rand"]
+    scores = ["guigenmc_menu_timer", "guigenmc_click", "guigenmc_page", "guigenmc_tmp", "guigenmc_rand"]
     for s in m.get("extra_scores") or []:
         if s not in scores:
             scores.append(s)

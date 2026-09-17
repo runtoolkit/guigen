@@ -22,10 +22,10 @@ VACUUM_TYPES = ["label", "separator", "progress"]
 
 def detect_block(widget_type: str, widget_id: str, handler_fn: str) -> list[str]:
     return [
-        f"execute as @a[scores={{guigen_menu_timer=1..}}] store success score @s guigen_click "
+        f"execute as @a[scores={{guigenmc_menu_timer=1..}}] store success score @s guigenmc_click "
         f"run {clear_by_type_id(widget_type, widget_id, 1)}",
-        f"execute as @a[scores={{guigen_click=1}}] at @s run function {handler_fn}",
-        "scoreboard players reset @a[scores={guigen_click=1}] guigen_click",
+        f"execute as @a[scores={{guigenmc_click=1}}] at @s run function {handler_fn}",
+        "scoreboard players reset @a[scores={guigenmc_click=1}] guigenmc_click",
         "",
     ]
 
@@ -37,8 +37,8 @@ def generate_tick(menu: dict[str, Any], out: dict[str, str]) -> None:
     lines = [
         "# Auto-generated core tick",
         "# Timer",
-        "execute as @a[scores={guigen_menu_timer=1..}] run scoreboard players remove @s guigen_menu_timer 1",
-        f"execute as @a[scores={{guigen_menu_timer=0}}] at @s run function {menu_function_prefix(menu)}/close",
+        "execute as @a[scores={guigenmc_menu_timer=1..}] run scoreboard players remove @s guigenmc_menu_timer 1",
+        f"execute as @a[scores={{guigenmc_menu_timer=0}}] at @s run function {menu_function_prefix(menu)}/close",
         "",
         "# Cooldown tick-down",
     ]
@@ -59,8 +59,8 @@ def generate_tick(menu: dict[str, Any], out: dict[str, str]) -> None:
         lines.extend(
             [
                 "# Follow (cart is kept on the player; distance_close cannot be exceeded)",
-                f"execute as @a[scores={{guigen_menu_timer=1..}}] at @s as {cart} run tp @s ~ ~ ~",
-                f"execute as @a[scores={{guigen_menu_timer=1..}}] at @s "
+                f"execute as @a[scores={{guigenmc_menu_timer=1..}}] at @s as {cart} run tp @s ~ ~ ~",
+                f"execute as @a[scores={{guigenmc_menu_timer=1..}}] at @s "
                 f"unless entity @e[type={entity},tag={menu_tag(menu)},limit=1] "
                 f"run function {menu_function_prefix(menu)}/close",
                 "",
@@ -71,10 +71,10 @@ def generate_tick(menu: dict[str, Any], out: dict[str, str]) -> None:
         lines.extend(
             [
                 "# Not following — enforce distance_close and cart-presence",
-                f"execute as @a[scores={{guigen_menu_timer=1..}}] at @s "
+                f"execute as @a[scores={{guigenmc_menu_timer=1..}}] at @s "
                 f"unless entity @e[type={entity},tag={menu_tag(menu)},limit=1] "
                 f"run function {menu_function_prefix(menu)}/close",
-                f"execute as @a[scores={{guigen_menu_timer=1..}}] at @s "
+                f"execute as @a[scores={{guigenmc_menu_timer=1..}}] at @s "
                 f"unless entity @e[type={entity},tag={menu_tag(menu)},distance=..{dist},limit=1] "
                 f"run function {menu_function_prefix(menu)}/close",
                 "",
@@ -104,23 +104,23 @@ def generate_tick(menu: dict[str, Any], out: dict[str, str]) -> None:
     for kind in VACUUM_TYPES:
         if kind in present_kinds:
             lines.append(
-                f"execute as @a[scores={{guigen_menu_timer=1..}}] run {clear_by_type(kind)}"
+                f"execute as @a[scores={{guigenmc_menu_timer=1..}}] run {clear_by_type(kind)}"
             )
-    lines.append(f"execute as @a[scores={{guigen_menu_timer=1..}}] run {clear_all_widgets()}")
+    lines.append(f"execute as @a[scores={{guigenmc_menu_timer=1..}}] run {clear_all_widgets()}")
     lines.append(
-        "execute as @a[scores={guigen_menu_timer=1..}] run clear @s *[custom_data~{guigen:{widget:1}}]"
+        "execute as @a[scores={guigenmc_menu_timer=1..}] run clear @s *[custom_data~{guigenmc:{widget:1}}]"
     )
 
     lines.extend(
         [
             "",
             "# Restore layout every tick",
-            f"execute as @a[scores={{guigen_menu_timer=1..}}] at @s "
+            f"execute as @a[scores={{guigenmc_menu_timer=1..}}] at @s "
             f"run function {menu_function_prefix(menu)}/fill",
             "",
             "# Kill dropped GUI items",
-            'kill @e[type=minecraft:item,nbt={Item:{components:{"minecraft:custom_data":{guigen:{widget:1}}}}}]',
-            "kill @e[type=minecraft:item,nbt={Item:{components:{custom_data:{guigen:{widget:1}}}}}]",
+            'kill @e[type=minecraft:item,nbt={Item:{components:{"minecraft:custom_data":{guigenmc:{widget:1}}}}}]',
+            "kill @e[type=minecraft:item,nbt={Item:{components:{custom_data:{guigenmc:{widget:1}}}}}]",
             "",
         ]
     )
