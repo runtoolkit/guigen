@@ -89,6 +89,10 @@ def generate_page_fills(menu: dict[str, Any], out: dict[str, str]) -> None:
     slots = container_slot_count(menu["container"])
     for page in menu["pages"]:
         lines = [f"# Page {page['index']} – {page['name']}", ""]
+        for cmd in page.get("on_enter") or []:
+            lines.append(str(cmd))
+        if page.get("on_enter"):
+            lines.append("")
         for w in page["widgets"]:
             lines.append(f"# slot {w['slot']}: {resolved_action_id(w)} ({w['kind']})")
             if w["kind"] == "toggle":
@@ -101,10 +105,16 @@ def generate_page_fills(menu: dict[str, Any], out: dict[str, str]) -> None:
 
         occupied = page_occupied(page["widgets"])
         pads = [s for s in range(slots) if s not in occupied]
-        if pads:
+        fill_empty = menu.get("fill_empty", True)
+        if pads and fill_empty:
+            filler_item = (
+                page.get("filler")
+                or menu.get("default_filler")
+                or "minecraft:gray_stained_glass_pane"
+            )
             lines.append("# Locked filler panes (no empty slots)")
             for s in pads:
-                pad = mk_separator_widget(s)
+                pad = mk_separator_widget(s, str(filler_item))
                 pad["action_id"] = f"pad_{page['index']}_{s}"
                 lines.append(
                     item_replace_command(cart_selector(menu), s, pad["item"], widget_components(pad))

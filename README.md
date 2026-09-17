@@ -145,6 +145,36 @@ Also supports: cost, cooldown, conditions, sounds, multi-page menus, hopper/ches
 
 ---
 
+
+---
+
+## Install from PyPI
+
+```bash
+pip install guigenmc
+guigenmc ui
+```
+
+## Publish (maintainers)
+
+1. Create a GitHub release (tag `v1.0.0`, etc.) — or run the **Publish to PyPI** workflow manually.
+2. On PyPI, add a **Trusted Publisher** for this repo:
+   - Owner: your GitHub user/org  
+   - Repository: `guigenmc`  
+   - Workflow: `publish.yml`  
+   - Environment: `pypi`
+3. No API token needed (OIDC).
+
+Local build check:
+
+```bash
+pip install build twine
+python -m build
+twine check dist/*
+# optional TestPyPI:
+# twine upload --repository testpypi dist/*
+```
+
 ## License
 
 MIT

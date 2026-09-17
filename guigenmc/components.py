@@ -1,4 +1,4 @@
-"""SNBT / item component helpers (port of components.py + builders/snbt.py)."""
+"""SNBT / item component helpers."""
 
 from __future__ import annotations
 
@@ -65,12 +65,18 @@ def mk_item_components(
     lore: list[dict[str, Any]] | None = None,
     custom_data: dict[str, Any] | None = None,
     max_stack_size: int = 1,
+    enchanted: bool = False,
+    custom_model_data: int | None = None,
+    count: int = 1,
 ) -> dict[str, Any]:
     return {
         "custom_name": custom_name,
         "lore": list(lore or []),
         "custom_data": dict(custom_data or {}),
         "max_stack_size": max_stack_size,
+        "enchanted": bool(enchanted),
+        "custom_model_data": custom_model_data,
+        "count": max(1, int(count)),
     }
 
 
@@ -87,6 +93,11 @@ def item_components_to_snbt_suffix(c: dict[str, Any]) -> str:
         parts.append(f"custom_data={dict_to_snbt(custom_data)}")
     if c.get("max_stack_size", 64) != 64:
         parts.append(f"max_stack_size={c['max_stack_size']}")
+    if c.get("enchanted"):
+        parts.append("enchantment_glint_override=true")
+    cmd = c.get("custom_model_data")
+    if cmd is not None:
+        parts.append(f"custom_model_data={int(cmd)}")
     if not parts:
         return ""
     return "[" + ",".join(parts) + "]"
@@ -98,7 +109,9 @@ def item_id(item: str) -> str:
 
 def item_replace_command(selector: str, slot: int, item: str, components: dict[str, Any]) -> str:
     suffix = item_components_to_snbt_suffix(components)
-    return f"item replace entity {selector} container.{slot} with {item_id(item)}{suffix}"
+    count = int(components.get("count") or 1)
+    count_s = f" {count}" if count != 1 else ""
+    return f"item replace entity {selector} container.{slot} with {item_id(item)}{suffix}{count_s}"
 
 
 def item_air_command(selector: str, slot: int) -> str:

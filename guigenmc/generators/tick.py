@@ -56,10 +56,12 @@ def generate_tick(menu: dict[str, Any], out: dict[str, str]) -> None:
         lines.append("")
 
     if menu.get("follow", True):
+        y_off = float(menu["container"].get("y_offset") or 0.0)
+        tp_target = f"~ ~{y_off} ~" if y_off else "~ ~ ~"
         lines.extend(
             [
                 "# Follow (cart is kept on the player; distance_close cannot be exceeded)",
-                f"execute as @a[scores={{guigen_menu_timer=1..}}] at @s as {cart} run tp @s ~ ~ ~",
+                f"execute as @a[scores={{guigen_menu_timer=1..}}] at @s as {cart} run tp @s {tp_target}",
                 f"execute as @a[scores={{guigen_menu_timer=1..}}] at @s "
                 f"unless entity @e[type={entity},tag={menu_tag(menu)},limit=1] "
                 f"run function {menu_function_prefix(menu)}/close",

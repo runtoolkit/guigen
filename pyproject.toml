@@ -1,26 +1,40 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "guigenmc"
 version = "1.0.0"
-description = "JSON → Minecraft GUI datapack generator (CLI)"
+description = "JSON → Minecraft GUI datapack generator (CLI + web UI)"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "guigenmc" }]
-keywords = ["minecraft", "datapack", "gui", "generator"]
+keywords = ["minecraft", "datapack", "gui", "generator", "cli"]
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "Environment :: Console",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Games/Entertainment",
+  "Topic :: Software Development :: Code Generators",
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/guigenmc/guigenmc"
+Documentation = "https://github.com/guigenmc/guigenmc#readme"
+Repository = "https://github.com/guigenmc/guigenmc"
+Issues = "https://github.com/guigenmc/guigenmc/issues"
+Changelog = "https://github.com/guigenmc/guigenmc/releases"
 
 [project.scripts]
 guigenmc = "guigenmc.cli:main"
@@ -30,4 +44,4 @@ where = ["."]
 include = ["guigenmc*"]
 
 [tool.setuptools.package-data]
-guigenmc = ["static/*"]
+guigenmc = ["static/*", "static/**/*"]
