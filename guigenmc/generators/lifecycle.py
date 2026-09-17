@@ -54,14 +54,23 @@ def generate_open(menu: dict[str, Any], out: dict[str, str]) -> None:
         [f"{menu['namespace']}.menu", menu_tag(menu)],
         menu["display_name"],
     )
+    y_off = float(menu["container"].get("y_offset") or 0.0)
+    if y_off:
+        summon_coords = f"~ ~{y_off} ~"
+    else:
+        summon_coords = "~ ~ ~"
     lines = [
         "# Auto-generated open",
         f"function {menu_function_prefix(menu)}/close",
         "",
-        f"summon {container_entity_id(menu['container'])} ~ ~ ~ {nbt}",
+        f"summon {container_entity_id(menu['container'])} {summon_coords} {nbt}",
         "",
         "scoreboard players set @s guigen_page 0",
     ]
+    for cmd in menu.get("on_open") or []:
+        lines.append(str(cmd))
+    if menu.get("on_open"):
+        lines.append("")
     inited: set[str] = set()
     for w in all_widgets(menu):
         scores_to_init: list[str] = []
@@ -106,9 +115,11 @@ def generate_close(menu: dict[str, Any], out: dict[str, str]) -> None:
             "clear @s *[custom_data~{guigen:{widget:1}}]",
             "scoreboard players reset @s guigen_menu_timer",
             "scoreboard players reset @s guigen_page",
-            "",
         ]
     )
+    for cmd in menu.get("on_close") or []:
+        lines.append(str(cmd))
+    lines.append("")
     out[f"{menu_dir_path(menu)}/close.mcfunction"] = "\n".join(lines)
 
 
