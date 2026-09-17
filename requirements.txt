@@ -1,0 +1,2 @@
+# guigen needs only the Python standard library (3.9+).
+# This file is intentionally empty so `pip install -r requirements.txt` is safe.

@@ -1,53 +1,150 @@
-# GUI Generator
+# ● guigen
 
-JSON → Minecraft inventory GUI datapack.
+**JSON → Minecraft GUI datapack** generator.
 
-## Generate
+- **CLI** — generate from a config file in the terminal  
+- **Web UI** — visual editor in your browser  
+
+Works on **Linux**, **macOS**, **GitHub Codespaces**, and **GitHub Actions**.  
+No extra packages — Python 3.9+ only.
+
+---
+
+## Quick start
 
 ```bash
-python3 generate.py
-python3 generate.py -c config/test_menu.json -o ./output/datapack
+pip install -e .
+
+# Visual editor (browser)
+guigen ui
+
+# Or from a JSON file
+guigen generate my_menu.json
+guigen generate my_menu.json -z    # zip
 ```
 
+In Minecraft:
+
+1. Put the datapack folder in `world/datapacks/`
+2. `/reload`
+3. `/function <namespace>:menu/<menu_id>/open`
+4. Right-click the minecart → **SHIFT-click** buttons
+
+---
+
+## Commands
+
+| Command | What it does |
+|---------|--------------|
+| `guigen ui` | Open the visual web editor |
+| `guigen generate config.json` | Build datapack folder |
+| `guigen generate config.json -z` | Build a `.zip` |
+| `guigen generate config.json -o name` | Custom output name |
+| `guigen generate config.json -f` | Overwrite existing |
+| `guigen validate config.json` | Check errors / warnings |
+| `guigen tree config.json` | Preview file list (no write) |
+| `guigen -h` | Help |
+
+Aliases: `guigen gen`, `guigen g`, `guigen check`.
+
+### UI options
+
+```bash
+guigen ui                  # http://127.0.0.1:8765
+guigen ui -p 9000          # custom port
+guigen ui --host 0.0.0.0   # Codespaces / remote access
+guigen ui --no-open        # don't open browser
 ```
-/function guigen:menu/test_menu/open
+
+In Codespaces: use `--host 0.0.0.0` and open the forwarded port in the browser.
+
+---
+
+## Colors
+
+Colored terminal output is on by default.
+
+- Off: `NO_COLOR=1 guigen generate …`
+- Force on: `FORCE_COLOR=1 guigen generate …`
+
+---
+
+## GitHub Actions example
+
+```yaml
+name: Build datapack
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: guigen generate my_menu.json -z -o datapack.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: datapack
+          path: datapack.zip
 ```
 
-## Datapack layout
+---
 
-```
-data/<ns>/function/
-  core/load.mcfunction
-  core/tick.mcfunction
-  menu/<menu_id>/
-    open.mcfunction
-    close.mcfunction
-    fill.mcfunction
-    give_opener.mcfunction
-    page/0.mcfunction …
-    click/<action>.mcfunction …
-data/minecraft/tags/function/{load,tick}.json
-pack.mcmeta
-```
+## Config basics
 
-## JSON highlights
+Minimal `config.json`:
 
-Widget fields: `kind`, `slot`, `item`, `action_id`, `name`, `lore`,
-`commands`, `functions`, `sound`, `condition`, **`cooldown_ticks`**, **`cost`**.
-
-### cooldown_ticks
-Blocks re-click for N ticks (`return` + scoreboard).
-
-### cost
 ```json
-"cost": {
-  "item": "minecraft:coal",
-  "count": 3,
-  "score": "money",
-  "amount": 10,
-  "fail_message": { "text": "Not enough!", "color": "red" }
+{
+  "namespace": "mymod",
+  "menu_id": "shop",
+  "pages": [
+    {
+      "index": 0,
+      "name": "Main",
+      "widgets": [
+        {
+          "kind": "button",
+          "slot": 13,
+          "item": "minecraft:diamond",
+          "name": { "text": "Get Diamond", "color": "aqua" },
+          "commands": ["give @s minecraft:diamond 1"]
+        },
+        { "kind": "close", "slot": 26 }
+      ]
+    }
+  ]
 }
 ```
-Item and/or score price deducted on success.
 
-Containers: `chest_minecart` (27) | `hopper_minecart` (5).
+### Widget kinds
+
+| kind | Description |
+|------|-------------|
+| `button` | Runs commands / functions on click |
+| `label` | Display-only item |
+| `separator` | Filler pane |
+| `toggle` | On/off switch with score |
+| `counter` | +/− a scoreboard value |
+| `progress` | Multi-slot progress bar |
+| `nav` | Go to another page |
+| `confirm` | Go to a confirm page |
+| `close` | Close the menu |
+| `random` | Weighted random rewards |
+
+Also supports: cost, cooldown, conditions, sounds, multi-page menus, hopper/chest minecart containers.
+
+---
+
+## Requirements
+
+- Python **3.9+**
+- Nothing else (stdlib only)
+
+---
+
+## License
+
+MIT

@@ -1,4 +1,13 @@
 __pycache__/
-.vscode/
-/output/
-*.env
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+*.zip
+*_datapack/
+sample_config.json
+.pytest_cache/
+.DS_Store
