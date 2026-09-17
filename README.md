@@ -2,69 +2,71 @@
 
 Declarative Minecraft inventory-GUI datapack generator.
 
-## Components are objects (never stringified JSON)
+Menus are defined in **JSON**. Run the generator to emit a ready-to-use datapack.
 
-```
-custom_name={text:"Heal & Feed",italic:false,color:"green"}
-lore=[{text:"...",italic:false,color:"gray"}]
-custom_data={guigen:{widget:1,type:"button",id:"heal"}}
-max_stack_size=1
-```
-
-Every widget item carries unique `custom_data`:
-
-| Field    | Meaning                                      |
-|----------|----------------------------------------------|
-| `widget` | `1` – GUI item (opener book does **not** have this) |
-| `type`   | Widget kind (`button`, `label`, `toggle`, …) |
-| `id`     | Unique action / slot id                      |
-
-Tick `clear` commands match `type` + `id` (item id is ignored), so taking a
-widget out of the cart always vacuums it from the player and the layout is
-restored next tick. Unused slots are filled with locked separator panes.
-
-## Layout
-
-```
-gui_generator/
-  models/
-    components.py   Text, ItemComponents
-    widgets.py      Widget + constructors (button, label, toggle, …)
-    menu.py         Menu, Page, Container
-  builders/         SNBT emission, paths
-  generators/       fill, handlers, tick, lifecycle
-  config/           menu definitions
-  generate.py
-```
-
-## Widget types
-
-| Widget      | Role                                      |
-|-------------|-------------------------------------------|
-| `button`    | Click → commands (optional condition)     |
-| `label`     | Display-only                              |
-| `separator` | Filler pane                               |
-| `toggle`    | On/off with two visuals + tick keep-alive |
-| `counter`   | ± score stepper with clamp                |
-| `nav`       | Change page                               |
-| `progress`  | Multi-slot bar driven by a score          |
-| `close`     | Close menu                                |
-| `confirm`   | Jump to a confirmation page               |
-
-## Container types
-
-| Type              | Slots | Notes                |
-|-------------------|-------|----------------------|
-| `chest_minecart`  | 27    | Default, follows you |
-| `hopper_minecart` | 5     | Compact UI           |
-
-## Usage
+## Quick start
 
 ```bash
 python3 generate.py
-python3 generate.py --out /path/to/datapack
+python3 generate.py --config config/test_menu.json --out ./output/datapack
 ```
 
+In-game:
+
 ```
+/reload
 /function guigen:menu/test_menu/open
 ```
+
+## JSON config
+
+See `config/test_menu.json` for a full demo.
+
+### Top-level fields
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `namespace` | required | Datapack namespace |
+| `menu_id` | required | Menu folder name |
+| `display_name` | `menu_id` | Cart inventory title |
+| `timer_ticks` | `900` | Auto-close timer |
+| `follow` | `true` | Teleport cart to player each tick |
+| `container.type` | `chest_minecart` | `chest_minecart` (27) or `hopper_minecart` (5) |
+| `extra_scores` | `[]` | Extra scoreboard objectives |
+| `pack_description` | auto | pack.mcmeta description |
+| `opener_name` / `opener_lore` | defaults | Knowledge-book opener text |
+
+### Widget kinds
+
+| kind | Role |
+|------|------|
+| `button` | Click → commands / functions |
+| `label` | Display-only |
+| `separator` / `filler` / `pad` | Locked pane |
+| `toggle` | On/off score + two visuals |
+| `counter` / `stepper` | ± score with clamp |
+| `nav` / `page` | Change page |
+| `progress` / `bar` | Multi-slot score bar |
+| `close` | Close menu |
+| `confirm` | Jump to confirm page |
+
+### Shared widget fields
+
+- `slot`, `item`, `action_id`
+- `name`, `lore` — `{ "text", "color", "bold", "italic" }`
+- `commands` — raw command lines
+- `functions` — datapack functions (`namespace:path`)
+- `sound` — playsound id on click
+- `success_message`, `condition`
+
+### Conditions
+
+`item_count_lt`, `item_count_gte`, `score`, `has_tag`, `gamemode`
+
+Every GUI item gets:
+
+```
+custom_data={guigen:{widget:1,type:"button",id:"heal"}}
+```
+
+Empty slots are padded; layout restores every tick; clear matches type+id.

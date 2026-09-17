@@ -82,6 +82,8 @@ class Widget:
     lore: list[Text] = field(default_factory=list)
     # optional shared behaviour
     commands: list[str] = field(default_factory=list)
+    functions: list[str] = field(default_factory=list)  # datapack functions to run
+    sound: str | None = None  # playsound id on click, e.g. minecraft:ui.button.click
     success_message: Text | None = None
     condition: Condition | None = None
     # type-specific

@@ -18,8 +18,9 @@ def _escape_snbt_string(s: str) -> str:
 class Container:
     """
     Physical container that holds the GUI slots.
-    chest_minecart : 27 slots, follows player
-    hopper_minecart: 5 slots, compact UI
+
+    chest_minecart  : 27 slots — default full UI, follows the player
+    hopper_minecart : 5 slots  — compact toolbar-style UI
     """
     type: ContainerType = "chest_minecart"
     invulnerable: bool = True
@@ -36,7 +37,7 @@ class Container:
 
     def summon_nbt(self, tags: list[str], custom_name: str | None = None) -> str:
         tag_list = ",".join(f'"{t}"' for t in tags)
-        flags = []
+        flags: list[str] = []
         if self.invulnerable:
             flags.append("Invulnerable:1b")
         if self.no_gravity:
@@ -46,7 +47,7 @@ class Container:
         flags.append("CustomNameVisible:0b")
         if custom_name:
             flags.append(
-                f'CustomName:{{text:"{_escape_snbt_string(custom_name)}",italic:false}}'
+                f'CustomName={{text:"{_escape_snbt_string(custom_name)}",italic:false}}'
             )
         flags.append(f"Tags:[{tag_list}]")
         return "{" + ",".join(flags) + "}"
@@ -58,7 +59,6 @@ class Page:
     name: str
     widgets: list[Widget] = field(default_factory=list)
 
-    # backward-compat alias
     @property
     def buttons(self) -> list[Widget]:
         return self.widgets
@@ -66,16 +66,19 @@ class Page:
 
 @dataclass
 class Menu:
-    """One complete GUI menu."""
+    """One complete GUI menu (loaded from JSON or built in Python)."""
     namespace: str
     menu_id: str
     display_name: str = "GUI Menu"
     timer_ticks: int = 900
     follow: bool = True
-    distance_close: float = 6.0
+    distance_close: float = 32.0
     container: Container = field(default_factory=Container)
     pages: list[Page] = field(default_factory=list)
     extra_scores: list[str] = field(default_factory=list)
+    pack_description: str | None = None
+    opener_name: str | None = None
+    opener_lore: str | None = None
 
     @property
     def function_prefix(self) -> str:
@@ -91,7 +94,6 @@ class Menu:
             result.extend(p.widgets)
         return result
 
-    # backward-compat
     def all_buttons(self) -> list[Widget]:
         return self.all_widgets()
 
