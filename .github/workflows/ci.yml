@@ -16,10 +16,10 @@ jobs:
         python-version: ["3.9", "3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -67,8 +67,8 @@ jobs:
         run: test -f $(python -c "import guigenmc, pathlib; print(pathlib.Path(guigenmc.__file__).parent / 'static' / 'index.html')")
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: datapack-${{ matrix.os }}-py${{ matrix.python-version }}
           path: shop.zip
-          retention-days: 3
+          retention-days: 21
