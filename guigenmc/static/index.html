@@ -1,0 +1,2010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>guigenmc — datapack generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root {
+  --bg: #0d1210;
+  --bg-panel: #131a17;
+  --bg-panel-raised: #182019;
+  --bg-inset: #0a0f0d;
+  --line: #26332c;
+  --line-soft: #1c2620;
+  --text: #d9e4dd;
+  --text-dim: #7d9187;
+  --text-faint: #4d5c54;
+  --accent: #6bcf8f;
+  --accent-dim: #3f7a56;
+  --accent-glow: rgba(107, 207, 143, 0.14);
+  --warn: #e0b04d;
+  --err: #e06858;
+  --err-bg: rgba(224, 104, 88, 0.1);
+  --mono: "SF Mono", "Berkeley Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f3f5f2;
+    --bg-panel: #ffffff;
+    --bg-panel-raised: #fafbf9;
+    --bg-inset: #eef1ed;
+    --line: #dde2dc;
+    --line-soft: #e6e9e3;
+    --text: #1c231e;
+    --text-dim: #5c6b60;
+    --text-faint: #94a196;
+    --accent: #2f8f56;
+    --accent-dim: #bfe3cc;
+    --accent-glow: rgba(47, 143, 86, 0.08);
+    --warn: #9a6b12;
+    --err: #b8382a;
+    --err-bg: rgba(184, 56, 42, 0.07);
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f3f5f2;
+  --bg-panel: #ffffff;
+  --bg-panel-raised: #fafbf9;
+  --bg-inset: #eef1ed;
+  --line: #dde2dc;
+  --line-soft: #e6e9e3;
+  --text: #1c231e;
+  --text-dim: #5c6b60;
+  --text-faint: #94a196;
+  --accent: #2f8f56;
+  --accent-dim: #bfe3cc;
+  --accent-glow: rgba(47, 143, 86, 0.08);
+  --warn: #9a6b12;
+  --err: #b8382a;
+  --err-bg: rgba(184, 56, 42, 0.07);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-panel);
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  white-space: nowrap;
+}
+.brand .dot { color: var(--accent); }
+.brand small {
+  font-family: var(--sans);
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+button, .file-btn {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg-panel-raised);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+button:hover, .file-btn:hover {
+  border-color: var(--accent-dim);
+  background: var(--bg-inset);
+}
+button:active { transform: translateY(1px); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06140b;
+  font-weight: 600;
+}
+button.primary:hover {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+:root[data-theme="dark"] button.primary,
+:root:not([data-theme="light"]) button.primary {
+  color: #06140b;
+}
+
+.file-btn input[type="file"] { display: none; }
+
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line);
+  min-height: 0;
+}
+
+@media (max-width: 860px) {
+  main { grid-template-columns: 1fr; }
+}
+
+.pane {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pane-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.pane-header .count {
+  margin-left: auto;
+  color: var(--text-faint);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#editor {
+  flex: 1;
+  width: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: var(--bg-inset);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 16px 18px;
+  tab-size: 2;
+}
+#editor::selection { background: var(--accent-glow); }
+
+.status-bar {
+  padding: 8px 16px;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--mono);
+  font-size: 12px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.status-bar.ok { color: var(--accent); }
+.status-bar.err { color: var(--err); background: var(--err-bg); }
+.status-bar.idle { color: var(--text-faint); }
+
+.right-pane { display: flex; flex-direction: column; }
+
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line-soft);
+  border-bottom: 1px solid var(--line);
+}
+.summary-cell {
+  background: var(--bg-panel);
+  padding: 12px 14px;
+}
+.summary-cell .label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+.summary-cell .value {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.tree {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 10px 8px;
+}
+.tree-empty {
+  color: var(--text-faint);
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 40px 20px;
+  text-align: center;
+  line-height: 1.6;
+}
+.tree-node { user-select: none; }
+.tree-dir {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-dim);
+}
+.tree-dir:hover { background: var(--bg-panel-raised); }
+.tree-dir .caret {
+  display: inline-block;
+  width: 10px;
+  color: var(--text-faint);
+  transition: transform 0.1s ease;
+  font-size: 10px;
+}
+.tree-dir.collapsed .caret { transform: rotate(-90deg); }
+.tree-children { margin-left: 16px; border-left: 1px solid var(--line-soft); padding-left: 4px; }
+.tree-children.hidden { display: none; }
+.tree-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text);
+}
+.tree-file:hover { background: var(--bg-panel-raised); }
+.tree-file.active { background: var(--accent-glow); color: var(--accent); }
+.tree-file .fsize { margin-left: auto; color: var(--text-faint); font-size: 11px; }
+
+.preview {
+  border-top: 1px solid var(--line);
+  height: 42%;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+}
+.preview-header {
+  padding: 8px 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.preview-header .path { color: var(--text); }
+.preview pre {
+  flex: 1;
+  margin: 0;
+  padding: 14px 18px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text);
+  background: var(--bg-inset);
+  white-space: pre;
+}
+.preview pre .cmt { color: var(--text-faint); }
+
+.hint {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--text-faint);
+  padding: 0 16px 12px;
+  line-height: 1.5;
+}
+.hint code {
+  font-family: var(--mono);
+  background: var(--bg-inset);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--text-dim);
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 50;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+.toast.err { border-color: var(--err); color: var(--err); }
+.toast.ok { border-color: var(--accent); color: var(--accent); }
+
+.warn-banner {
+  padding: 10px 14px;
+  background: var(--err-bg);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.warn-banner.hidden { display: none; }
+.warn-banner-head { font-weight: 600; color: var(--warn); }
+.warn-banner ul { margin: 6px 0 0; padding-left: 18px; }
+.warn-banner li { margin: 3px 0; color: var(--text-dim); line-height: 1.5; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="dot">●</span>guigenmc <small>JSON → Minecraft GUI datapack</small></div>
+  <div class="topbar-actions">
+    <button id="themeToggle" title="toggle light / dark theme">◐ Theme</button>
+    <label class="file-btn" title="load a config JSON file">
+      ⇪ Load JSON
+      <input type="file" id="fileInput" accept=".json,application/json">
+    </label>
+    <button id="saveConfigBtn" title="download the current config as .json">⇩ Save config</button>
+    <button id="generateBtn" class="primary" title="generate the datapack">▸ Generate</button>
+    <button id="downloadBtn" disabled title="download the generated datapack as .zip">⇩ Download .zip</button>
+  </div>
+</div>
+
+<main>
+  <div class="pane">
+    <div class="pane-header">config.json <span class="count" id="editorCount"></span></div>
+    <textarea id="editor" spellcheck="false"></textarea>
+    <div class="status-bar idle" id="statusBar">Paste or Load a config JSON, then hit Generate.</div>
+  </div>
+
+  <div class="pane right-pane">
+    <div class="summary-strip" id="summaryStrip">
+      <div class="summary-cell"><div class="label">namespace</div><div class="value" id="sumNs">—</div></div>
+      <div class="summary-cell"><div class="label">menu</div><div class="value" id="sumMenu">—</div></div>
+      <div class="summary-cell"><div class="label">sayfa / widget</div><div class="value" id="sumCounts">—</div></div>
+      <div class="summary-cell"><div class="label">container</div><div class="value" id="sumContainer">—</div></div>
+    </div>
+    <div class="warn-banner hidden" id="warnBanner">
+      <div class="warn-banner-head" id="warnHead"></div>
+      <ul id="warnList"></ul>
+    </div>
+    <div class="pane-header">output <span class="count" id="treeCount"></span></div>
+    <div class="tree-scroll">
+      <div class="tree" id="tree">
+        <div class="tree-empty">No files generated yet.<br>Hit Generate with the config on the left<br>and the datapack tree will show up here.</div>
+      </div>
+    </div>
+    <div class="preview">
+      <div class="preview-header">preview: <span class="path" id="previewPath">—</span></div>
+      <pre id="previewContent"></pre>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================================
+// guigen core — JS port of the Python generator (models/, builders/, generators/)
+// Faithful 1:1 port. Pure functions; no DOM. out is a Map<string, string> of
+// relative file paths -> file contents (the whole datapack).
+// ============================================================================
+
+// ---- components.py --------------------------------------------------------
+
+function escapeSnbtString(s) {
+  return String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+// Text: { text, italic=false, color=null, bold=null, underlined=null }
+function textToSnbt(t) {
+  const parts = [`text:"${escapeSnbtString(t.text)}"`];
+  parts.push(`italic:${(t.italic ? true : false)}`);
+  if (t.color != null) parts.push(`color:"${t.color}"`);
+  if (t.bold != null) parts.push(`bold:${t.bold ? "true" : "false"}`);
+  if (t.underlined != null) parts.push(`underlined:${t.underlined ? "true" : "false"}`);
+  return "{" + parts.join(",") + "}";
+}
+
+function mkText(text, opts = {}) {
+  return {
+    text: text == null ? "" : String(text),
+    italic: !!opts.italic,
+    color: opts.color ?? null,
+    bold: opts.bold ?? null,
+    underlined: opts.underlined ?? null,
+  };
+}
+
+function valueToSnbt(v) {
+  if (typeof v === "boolean") return v ? "1b" : "0b";
+  if (typeof v === "number") {
+    if (Number.isInteger(v)) return String(v);
+    return `${v}d`;
+  }
+  if (typeof v === "string") return `"${escapeSnbtString(v)}"`;
+  if (Array.isArray(v)) return "[" + v.map(valueToSnbt).join(",") + "]";
+  if (v && typeof v === "object") return dictToSnbt(v);
+  throw new TypeError(`Unsupported SNBT value type: ${typeof v}`);
+}
+
+function dictToSnbt(d) {
+  const items = Object.entries(d).map(([k, v]) => `${k}:${valueToSnbt(v)}`);
+  return "{" + items.join(",") + "}";
+}
+
+// ItemComponents: { custom_name: Text|null, lore: Text[], custom_data: {}, max_stack_size: 1 }
+function mkItemComponents({ custom_name = null, lore = [], custom_data = {}, max_stack_size = 1 } = {}) {
+  return { custom_name, lore, custom_data, max_stack_size };
+}
+
+function itemComponentsToSnbtSuffix(c) {
+  const parts = [];
+  if (c.custom_name != null) parts.push(`custom_name=${textToSnbt(c.custom_name)}`);
+  if (c.lore && c.lore.length) {
+    const loreSnbt = "[" + c.lore.map(textToSnbt).join(",") + "]";
+    parts.push(`lore=${loreSnbt}`);
+  }
+  if (c.custom_data && Object.keys(c.custom_data).length) {
+    parts.push(`custom_data=${dictToSnbt(c.custom_data)}`);
+  }
+  if (c.max_stack_size !== 64) parts.push(`max_stack_size=${c.max_stack_size}`);
+  if (!parts.length) return "";
+  return "[" + parts.join(",") + "]";
+}
+
+// ---- builders/snbt.py ------------------------------------------------------
+
+function itemId(item) {
+  return item.includes(":") ? item : `minecraft:${item}`;
+}
+
+function itemReplaceCommand(selector, slot, item, components) {
+  const suffix = itemComponentsToSnbtSuffix(components);
+  return `item replace entity ${selector} container.${slot} with ${itemId(item)}${suffix}`;
+}
+
+function itemAirCommand(selector, slot) {
+  return `item replace entity ${selector} container.${slot} with minecraft:air`;
+}
+
+function customDataPredicate(fields) {
+  const inner = Object.entries(fields)
+    .map(([k, v]) => (typeof v === "string" ? `${k}:"${v}"` : `${k}:${v}`))
+    .join(",");
+  return `*[custom_data~{guigen:{${inner}}}]`;
+}
+
+function clearByTypeId(widgetType, widgetId, count = 1) {
+  const spec = customDataPredicate({ type: widgetType, id: widgetId });
+  if (count == null) return `clear @s ${spec}`;
+  return `clear @s ${spec} ${count}`;
+}
+
+function clearByType(widgetType) {
+  const spec = customDataPredicate({ type: widgetType });
+  return `clear @s ${spec}`;
+}
+
+function clearAllWidgets() {
+  return "clear @s *[custom_data~{guigen:{widget:1}}]";
+}
+
+// ---- models/widgets.py ------------------------------------------------------
+
+function resolvedActionId(w) {
+  if (w.action_id) return w.action_id;
+  return `${w.kind}_${w.slot}`;
+}
+
+function occupiedSlots(w) {
+  if (w.kind === "progress") {
+    const width = Math.max(1, w.progress_width || 1);
+    return Array.from({ length: width }, (_, i) => w.slot + i);
+  }
+  return [w.slot];
+}
+
+function guiCustomData(w, cellSlot = null) {
+  let wid = resolvedActionId(w);
+  if (cellSlot != null) wid = `${wid}_s${cellSlot}`;
+  return { guigen: { widget: 1, type: w.kind, id: wid } };
+}
+
+function widgetComponents(w, cellSlot = null) {
+  return mkItemComponents({
+    custom_name: w.name,
+    lore: w.lore ? w.lore.slice() : [],
+    custom_data: guiCustomData(w, cellSlot),
+  });
+}
+
+function componentsForToggle(w, state) {
+  const t = w.toggle;
+  const data = guiCustomData(w);
+  if (state === 0) {
+    return [t.off_item, mkItemComponents({ custom_name: t.off_name, lore: t.off_lore.slice(), custom_data: data })];
+  }
+  return [t.on_item, mkItemComponents({ custom_name: t.on_name, lore: t.on_lore.slice(), custom_data: data })];
+}
+
+function isInteractive(w) {
+  return !["label", "separator", "progress"].includes(w.kind);
+}
+
+function mkSeparatorWidget(slot, item = "minecraft:gray_stained_glass_pane") {
+  return mkWidget({
+    slot,
+    kind: "separator",
+    item,
+    action_id: `separator_${slot}`,
+    name: mkText(" ", { color: "dark_gray" }),
+    clickable: false,
+  });
+}
+
+function mkWidget(fields) {
+  return Object.assign(
+    {
+      slot: 0,
+      kind: "button",
+      item: "minecraft:stone",
+      action_id: "",
+      name: null,
+      lore: [],
+      commands: [],
+      functions: [],
+      sound: null,
+      success_message: null,
+      condition: null,
+      cooldown_ticks: 0,
+      cost: null,
+      toggle: null,
+      target_page: null,
+      confirm_page: null,
+      counter_score: null,
+      counter_delta: 1,
+      counter_min: 0,
+      counter_max: 64,
+      counter_wrap: false,
+      counter_display_item: null,
+      progress_score: null,
+      progress_max: 10,
+      progress_width: 5,
+      progress_full_item: "minecraft:lime_stained_glass_pane",
+      progress_empty_item: "minecraft:gray_stained_glass_pane",
+      random: null,
+      clickable: true,
+    },
+    fields
+  );
+}
+
+// ---- models/menu.py ---------------------------------------------------------
+
+function mkContainer({ type = "chest_minecart", invulnerable = true, no_gravity = true, silent = true } = {}) {
+  return { type, invulnerable, no_gravity, silent };
+}
+
+function containerEntityId(c) {
+  return `minecraft:${c.type}`;
+}
+
+function containerSlotCount(c) {
+  return c.type === "hopper_minecart" ? 5 : 27;
+}
+
+function containerSummonNbt(c, tags, customName = null) {
+  const tagList = tags.map((t) => `"${t}"`).join(",");
+  const flags = [];
+  if (c.invulnerable) flags.push("Invulnerable:1b");
+  if (c.no_gravity) flags.push("NoGravity:1b");
+  if (c.silent) flags.push("Silent:1b");
+  flags.push("CustomNameVisible:0b");
+  if (customName) {
+    flags.push(`CustomName:{text:"${escapeSnbtString(customName)}",italic:false}`);
+  }
+  flags.push(`Tags:[${tagList}]`);
+  return "{" + flags.join(",") + "}";
+}
+
+function menuFunctionPrefix(m) {
+  return `${m.namespace}:menu/${m.menu_id}`;
+}
+function menuCorePrefix(m) {
+  return `${m.namespace}:core`;
+}
+function menuPagePrefix(m) {
+  return `${menuFunctionPrefix(m)}/page`;
+}
+function menuClickPrefix(m) {
+  return `${menuFunctionPrefix(m)}/click`;
+}
+function menuTag(m) {
+  return `${m.namespace}.${m.menu_id}`;
+}
+
+function allWidgets(m) {
+  const result = [];
+  for (const p of m.pages) result.push(...p.widgets);
+  return result;
+}
+function interactiveWidgets(m) {
+  return allWidgets(m).filter(isInteractive);
+}
+
+function collectScores(m) {
+  const scores = ["guigen_menu_timer", "guigen_click", "guigen_page", "guigen_tmp", "guigen_rand"];
+  for (const s of m.extra_scores) if (!scores.includes(s)) scores.push(s);
+  for (const w of allWidgets(m)) {
+    if (w.toggle && !scores.includes(w.toggle.score)) scores.push(w.toggle.score);
+    if (w.counter_score && !scores.includes(w.counter_score)) scores.push(w.counter_score);
+    if (w.progress_score && !scores.includes(w.progress_score)) scores.push(w.progress_score);
+  }
+  return scores;
+}
+
+// ---- models/loader.py --------------------------------------------------------
+
+function loaderText(raw) {
+  if (raw == null) return null;
+  if (typeof raw === "string") return mkText(raw);
+  if (typeof raw === "object") {
+    return mkText(raw.text ?? "", {
+      italic: !!raw.italic,
+      color: raw.color ?? null,
+      bold: raw.bold ?? null,
+      underlined: raw.underlined ?? null,
+    });
+  }
+  throw new TypeError(`Invalid text value: ${JSON.stringify(raw)}`);
+}
+
+function loaderTextList(raw) {
+  if (!raw) return [];
+  if (!Array.isArray(raw)) throw new TypeError(`lore must be a list`);
+  const out = [];
+  for (const item of raw) {
+    const t = loaderText(item);
+    if (t != null) out.push(t);
+  }
+  return out;
+}
+
+const VALID_CONDITION_TYPES = ["item_count_lt", "item_count_gte", "score", "has_tag", "gamemode"];
+
+function loaderCondition(raw) {
+  if (raw == null) return null;
+  if (typeof raw !== "object") throw new TypeError("condition must be an object");
+  const ctype = raw.type;
+  if (!VALID_CONDITION_TYPES.includes(ctype)) throw new Error(`Unknown condition type: ${ctype}`);
+  return {
+    type: ctype,
+    item: raw.item ?? null,
+    max_count: raw.max_count ?? null,
+    min_count: raw.min_count ?? null,
+    score: raw.score ?? null,
+    matches: raw.matches ?? null,
+    tag: raw.tag ?? null,
+    gamemode: raw.gamemode ?? null,
+    fail_message: loaderText(raw.fail_message),
+  };
+}
+
+function loaderCost(raw) {
+  if (raw == null) return null;
+  if (typeof raw !== "object") throw new TypeError("cost must be an object");
+  if (!raw.item && !raw.score) throw new Error("cost requires 'item' and/or 'score'");
+  return {
+    item: raw.item ?? null,
+    count: parseInt(raw.count ?? 1, 10),
+    score: raw.score ?? null,
+    amount: parseInt(raw.amount ?? 1, 10),
+    fail_message: loaderText(raw.fail_message),
+  };
+}
+
+function loaderToggleState(raw) {
+  if (typeof raw !== "object" || raw == null) throw new TypeError("toggle must be an object");
+  for (const key of ["score", "off_item", "on_item", "off_name", "on_name"]) {
+    if (!(key in raw)) throw new Error(`toggle missing required field: ${key}`);
+  }
+  const offName = loaderText(raw.off_name);
+  const onName = loaderText(raw.on_name);
+  return {
+    score: String(raw.score),
+    off_item: String(raw.off_item),
+    on_item: String(raw.on_item),
+    off_name: offName,
+    on_name: onName,
+    off_lore: loaderTextList(raw.off_lore),
+    on_lore: loaderTextList(raw.on_lore),
+    on_commands: (raw.on_commands || []).slice(),
+    off_commands: (raw.off_commands || []).slice(),
+    tick_while_on: (raw.tick_while_on || []).slice(),
+  };
+}
+
+const WIDGET_KIND_ALIASES = {
+  btn: "button",
+  sep: "separator",
+  filler: "separator",
+  pad: "separator",
+  close_btn: "close",
+  navigation: "nav",
+  page: "nav",
+  bar: "progress",
+  stepper: "counter",
+};
+
+const VALID_WIDGET_KINDS = [
+  "button", "label", "separator", "toggle", "counter", "nav", "progress", "close", "confirm", "random",
+];
+
+function loaderRandomReward(raw, index) {
+  if (typeof raw !== "object" || raw == null) throw new TypeError(`random.rewards[${index}] must be an object`);
+  const weight = parseInt(raw.weight ?? 1, 10);
+  if (weight <= 0) throw new Error(`random.rewards[${index}].weight must be > 0`);
+  return {
+    weight,
+    commands: (raw.commands || []).slice(),
+    functions: (raw.functions || []).slice(),
+    message: loaderText(raw.message),
+  };
+}
+
+function loaderRandom(raw) {
+  if (typeof raw !== "object" || raw == null) throw new TypeError("random must be an object");
+  const rewardsRaw = raw.rewards || [];
+  if (!Array.isArray(rewardsRaw) || !rewardsRaw.length) {
+    throw new Error("random widget requires a non-empty 'rewards' list");
+  }
+  return { rewards: rewardsRaw.map(loaderRandomReward) };
+}
+
+function loaderWidget(raw) {
+  if (typeof raw !== "object" || raw == null) throw new TypeError("widget must be an object");
+  let kind = raw.kind || raw.type;
+  if (!kind) throw new Error("widget requires 'kind'");
+  kind = WIDGET_KIND_ALIASES[String(kind)] || String(kind);
+  if (!VALID_WIDGET_KINDS.includes(kind)) {
+    throw new Error(`Unknown widget kind: ${kind} (allowed: ${VALID_WIDGET_KINDS.join(", ")})`);
+  }
+
+  if (!("slot" in raw) && kind !== "progress") {
+    throw new Error(`widget kind=${kind} requires 'slot'`);
+  }
+  const slot = parseInt(raw.slot ?? raw.start_slot ?? 0, 10);
+
+  let clickable = true;
+  if (["label", "separator", "progress"].includes(kind)) clickable = false;
+  if ("clickable" in raw) clickable = !!raw.clickable;
+
+  const w = mkWidget({
+    slot,
+    kind,
+    item: String(raw.item ?? "minecraft:stone"),
+    action_id: String(raw.action_id ?? raw.id ?? ""),
+    name: loaderText(raw.name),
+    lore: loaderTextList(raw.lore),
+    commands: (raw.commands || []).slice(),
+    functions: (raw.functions || []).slice(),
+    sound: raw.sound ?? null,
+    success_message: loaderText(raw.success_message),
+    condition: loaderCondition(raw.condition),
+    cooldown_ticks: parseInt(raw.cooldown_ticks ?? raw.cooldown ?? 0, 10),
+    cost: loaderCost(raw.cost),
+    target_page: raw.target_page ?? null,
+    confirm_page: raw.confirm_page ?? null,
+    counter_score: raw.counter_score ?? raw.score ?? null,
+    counter_delta: parseInt(raw.counter_delta ?? raw.delta ?? 1, 10),
+    counter_min: parseInt(raw.counter_min ?? raw.min ?? raw.min_v ?? 0, 10),
+    counter_max: parseInt(raw.counter_max ?? raw.max ?? raw.max_v ?? 64, 10),
+    counter_wrap: !!(raw.counter_wrap ?? raw.wrap ?? false),
+    progress_score: raw.progress_score ?? (kind === "progress" ? raw.score ?? null : null),
+    progress_max: parseInt(raw.progress_max ?? raw.max ?? raw.max_v ?? 10, 10),
+    progress_width: parseInt(raw.progress_width ?? raw.width ?? 5, 10),
+    progress_full_item: String(raw.progress_full_item ?? raw.full_item ?? "minecraft:lime_stained_glass_pane"),
+    progress_empty_item: String(raw.progress_empty_item ?? raw.empty_item ?? "minecraft:gray_stained_glass_pane"),
+    clickable,
+  });
+
+  if (kind === "toggle") {
+    if (!("toggle" in raw)) throw new Error("toggle widget requires 'toggle' object");
+    w.toggle = loaderToggleState(raw.toggle);
+    if (!w.item || w.item === "minecraft:stone") w.item = w.toggle.off_item;
+    if (w.name == null) w.name = w.toggle.off_name;
+    if (!w.action_id) w.action_id = w.toggle.score;
+  }
+
+  if (kind === "random") {
+    if (!("random" in raw)) throw new Error("random widget requires 'random' object");
+    w.random = loaderRandom(raw.random);
+  }
+
+  if (kind === "nav" && w.target_page == null) throw new Error("nav widget requires target_page");
+  if (kind === "confirm" && w.confirm_page == null) throw new Error("confirm widget requires confirm_page");
+  if (kind === "counter" && !w.counter_score) throw new Error("counter widget requires score / counter_score");
+  if (kind === "progress" && !w.progress_score) throw new Error("progress widget requires score / progress_score");
+  if (kind === "close" && !w.action_id) {
+    w.action_id = "close_menu";
+    if (w.name == null) w.name = mkText("Close Menu", { color: "red" });
+    if (!w.lore.length) w.lore = [mkText("Close this menu", { color: "gray" })];
+    if (w.item === "minecraft:stone") w.item = "minecraft:barrier";
+    if (w.success_message == null) w.success_message = mkText("Menu closed.", { color: "red" });
+  }
+  if (kind === "separator") {
+    if (!w.action_id) w.action_id = `separator_${slot}`;
+    if (w.name == null) w.name = mkText(" ", { color: "dark_gray" });
+    if (w.item === "minecraft:stone") w.item = "minecraft:gray_stained_glass_pane";
+  }
+
+  return w;
+}
+
+function loaderPage(raw, fallbackIndex) {
+  if (typeof raw !== "object" || raw == null) throw new TypeError("page must be an object");
+  const index = parseInt(raw.index ?? fallbackIndex, 10);
+  const name = String(raw.name ?? `Page ${index}`);
+  const widgetsRaw = raw.widgets || raw.buttons || [];
+  if (!Array.isArray(widgetsRaw)) throw new TypeError("page.widgets must be a list");
+  const widgets = widgetsRaw.map(loaderWidget);
+  return { index, name, widgets };
+}
+
+function loaderContainer(raw) {
+  if (raw == null) return mkContainer();
+  if (typeof raw !== "object") throw new TypeError("container must be an object");
+  const ctype = String(raw.type ?? "chest_minecart");
+  if (!["chest_minecart", "hopper_minecart"].includes(ctype)) {
+    throw new Error(`Unknown container type: ${ctype} (allowed: chest_minecart, hopper_minecart)`);
+  }
+  return mkContainer({
+    type: ctype,
+    invulnerable: raw.invulnerable ?? true,
+    no_gravity: raw.no_gravity ?? true,
+    silent: raw.silent ?? true,
+  });
+}
+
+function menuFromDict(data) {
+  if (!("namespace" in data) || !("menu_id" in data)) {
+    throw new Error("config requires 'namespace' and 'menu_id'");
+  }
+  const pagesRaw = data.pages || [];
+  if (!Array.isArray(pagesRaw) || !pagesRaw.length) {
+    throw new Error("config requires non-empty 'pages' list");
+  }
+  const pages = pagesRaw.map((p, i) => loaderPage(p, i));
+
+  return {
+    namespace: String(data.namespace),
+    menu_id: String(data.menu_id),
+    display_name: String(data.display_name ?? data.menu_id),
+    timer_ticks: parseInt(data.timer_ticks ?? 900, 10),
+    follow: data.follow ?? true,
+    distance_close: parseFloat(data.distance_close ?? 32),
+    container: loaderContainer(data.container),
+    pages,
+    extra_scores: (data.extra_scores || []).slice(),
+    pack_description: data.pack_description ?? null,
+    opener_name: data.opener_name ?? null,
+    opener_lore: data.opener_lore ?? null,
+  };
+}
+
+function loadMenuFromJsonString(jsonText) {
+  const data = JSON.parse(jsonText);
+  if (typeof data !== "object" || Array.isArray(data) || data == null) {
+    throw new TypeError("JSON root must be an object");
+  }
+  return menuFromDict(data);
+}
+
+// ---- generators/fill.py -------------------------------------------------------
+
+function cartSelector(menu) {
+  return `@e[type=${containerEntityId(menu.container)},tag=${menuTag(menu)},sort=nearest,limit=1]`;
+}
+
+function generateFillRouter(menu, out) {
+  const lines = ["# Auto-generated – route to current page (every slot is overwritten)", ""];
+  for (const page of menu.pages) {
+    lines.push(
+      `execute if score @s guigen_page matches ${page.index} run function ${menuPagePrefix(menu)}/${page.index}`
+    );
+  }
+  out.set(`${menuDirPath(menu)}/fill.mcfunction`, lines.join("\n") + "\n");
+}
+
+function emitStatic(menu, w) {
+  return [itemReplaceCommand(cartSelector(menu), w.slot, w.item, widgetComponents(w))];
+}
+
+function emitToggle(menu, w) {
+  const lines = [];
+  for (const state of [0, 1]) {
+    const [item, comps] = componentsForToggle(w, state);
+    const cmd = itemReplaceCommand(cartSelector(menu), w.slot, item, comps);
+    lines.push(`execute if score @s ${w.toggle.score} matches ${state} run ${cmd}`);
+  }
+  return lines;
+}
+
+function emitProgress(menu, w) {
+  const lines = [];
+  const width = w.progress_width;
+  const mx = w.progress_max;
+  for (let i = 0; i < width; i++) {
+    const slot = w.slot + i;
+    const threshold = Math.floor((i * mx) / width);
+    const emptyComps = mkItemComponents({
+      custom_name: w.name || mkText(" "),
+      custom_data: guiCustomData(w, slot),
+    });
+    const fullComps = mkItemComponents({
+      custom_name: w.name || mkText(" "),
+      custom_data: guiCustomData(w, slot),
+    });
+    const emptyCmd = itemReplaceCommand(cartSelector(menu), slot, w.progress_empty_item, emptyComps);
+    const fullCmd = itemReplaceCommand(cartSelector(menu), slot, w.progress_full_item, fullComps);
+    lines.push(emptyCmd);
+    if (i === 0) {
+      lines.push(`execute if score @s ${w.progress_score} matches 1.. run ${fullCmd}`);
+    } else {
+      lines.push(`execute if score @s ${w.progress_score} matches ${threshold + 1}.. run ${fullCmd}`);
+    }
+  }
+  return lines;
+}
+
+function pageOccupied(pageWidgets) {
+  const occ = new Set();
+  for (const w of pageWidgets) for (const s of occupiedSlots(w)) occ.add(s);
+  return occ;
+}
+
+function generatePageFills(menu, out) {
+  const slots = containerSlotCount(menu.container);
+  for (const page of menu.pages) {
+    const lines = [`# Page ${page.index} – ${page.name}`, ""];
+    for (const w of page.widgets) {
+      lines.push(`# slot ${w.slot}: ${resolvedActionId(w)} (${w.kind})`);
+      if (w.kind === "toggle") lines.push(...emitToggle(menu, w));
+      else if (w.kind === "progress") lines.push(...emitProgress(menu, w));
+      else lines.push(...emitStatic(menu, w));
+      lines.push("");
+    }
+
+    const occupied = pageOccupied(page.widgets);
+    const pads = [];
+    for (let s = 0; s < slots; s++) if (!occupied.has(s)) pads.push(s);
+    if (pads.length) {
+      lines.push("# Locked filler panes (no empty slots)");
+      for (const s of pads) {
+        const pad = mkSeparatorWidget(s);
+        pad.action_id = `pad_${page.index}_${s}`;
+        lines.push(itemReplaceCommand(cartSelector(menu), s, pad.item, widgetComponents(pad)));
+      }
+      lines.push("");
+    }
+
+    out.set(`${pageDirPath(menu)}/${page.index}.mcfunction`, lines.join("\n").replace(/\s+$/, "") + "\n");
+  }
+}
+
+// ---- generators/handlers.py ----------------------------------------------------
+
+function escapeJson(s) {
+  return String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function tellrawLine(msg) {
+  const parts = [`"text":"${escapeJson(msg.text)}"`, `"italic":false`];
+  if (msg.color) parts.push(`"color":"${msg.color}"`);
+  const body = "{" + parts.join(",") + "}";
+  return `tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},${body}]`;
+}
+
+function playsound(sound) {
+  if (!sound) return [];
+  return [`playsound ${sound} master @s ~ ~ ~ 1 1`];
+}
+
+function cdScore(actionId) {
+  const safe = String(actionId).replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 40);
+  return `guigen_cd_${safe}`;
+}
+
+function cooldownGuard(w) {
+  const ticks = parseInt(w.cooldown_ticks || 0, 10);
+  if (ticks <= 0) return [];
+  const sc = cdScore(resolvedActionId(w));
+  const msg = mkText("Please wait…", { color: "red" });
+  return [
+    `# cooldown ${ticks}t -> ${sc}`,
+    `execute if score @s ${sc} matches 1.. run ${tellrawLine(msg)}`,
+    `execute if score @s ${sc} matches 1.. run return 1`,
+    `scoreboard players set @s ${sc} ${ticks}`,
+    "",
+  ];
+}
+
+function costGuard(w) {
+  const cost = w.cost;
+  if (cost == null) return [];
+  const fail = cost.fail_message || mkText("Not enough resources.", { color: "red" });
+  const lines = ["# cost check"];
+  if (cost.item) {
+    lines.push(`execute store result score @s guigen_tmp run clear @s ${cost.item} 0`);
+    lines.push(`execute if score @s guigen_tmp matches ..${cost.count - 1} run ${tellrawLine(fail)}`);
+    lines.push(`execute if score @s guigen_tmp matches ..${cost.count - 1} run return 1`);
+    lines.push(`clear @s ${cost.item} ${cost.count}`);
+  }
+  if (cost.score) {
+    lines.push(`execute unless score @s ${cost.score} matches ${cost.amount}.. run ${tellrawLine(fail)}`);
+    lines.push(`execute unless score @s ${cost.score} matches ${cost.amount}.. run return 1`);
+    lines.push(`scoreboard players remove @s ${cost.score} ${cost.amount}`);
+  }
+  lines.push("");
+  return lines;
+}
+
+function emitActions(w, prefix = "") {
+  const lines = [];
+  for (const c of w.commands) lines.push(prefix ? `${prefix}${c}` : c);
+  for (const fn of w.functions || []) {
+    const cmd = `function ${fn}`;
+    lines.push(prefix ? `${prefix}${cmd}` : cmd);
+  }
+  for (const s of playsound(w.sound)) lines.push(prefix ? `${prefix}${s}` : s);
+  return lines;
+}
+
+function handlerFor(menu, w) {
+  const aid = resolvedActionId(w);
+  let lines = [`# Handler: ${aid} (${w.kind})`, ""];
+
+  if (w.kind !== "close") {
+    // Any real interaction (including one blocked by cooldown/cost) keeps
+    // the menu alive — reset the auto-close timer before any guard can
+    // early-return, otherwise a spam-click or a failed cost check still
+    // lets the timer keep ticking down toward an unexpected close.
+    lines.push(`# Interaction keeps the menu open — reset auto-close timer`);
+    lines.push(`scoreboard players set @s guigen_menu_timer ${menu.timer_ticks}`);
+    lines.push("");
+    lines.push(...cooldownGuard(w));
+    if (w.cost != null) lines.push(...costGuard(w));
+  }
+
+  if (w.kind === "close") {
+    lines.push(...playsound(w.sound));
+    const msg = w.success_message || mkText("Menu closed.", { color: "red" });
+    lines.push(tellrawLine(msg));
+    lines.push(`function ${menuFunctionPrefix(menu)}/close`);
+    return lines;
+  }
+
+  if (w.kind === "nav") {
+    lines.push(...playsound(w.sound));
+    lines.push(`scoreboard players set @s guigen_page ${w.target_page}`);
+    lines.push(`function ${menuFunctionPrefix(menu)}/fill`);
+    if (w.success_message) lines.push(tellrawLine(w.success_message));
+    return lines;
+  }
+
+  if (w.kind === "confirm") {
+    lines.push(...playsound(w.sound));
+    lines.push(`scoreboard players set @s guigen_page ${w.confirm_page}`);
+    lines.push(`function ${menuFunctionPrefix(menu)}/fill`);
+    const msg = w.success_message || mkText("Confirm?", { color: "gold" });
+    lines.push(tellrawLine(msg));
+    return lines;
+  }
+
+  if (w.kind === "toggle") {
+    const t = w.toggle;
+    lines.push(...playsound(w.sound));
+    lines.push(
+      `execute if score @s ${t.score} matches 1 run scoreboard players set @s guigen_tmp 1`,
+      `execute if score @s ${t.score} matches 0 run scoreboard players set @s ${t.score} 1`,
+      `execute if score @s guigen_tmp matches 1 run scoreboard players set @s ${t.score} 0`,
+      `scoreboard players reset @s guigen_tmp`,
+      ""
+    );
+    for (const c of t.on_commands) lines.push(`execute if score @s ${t.score} matches 1 run ${c}`);
+    for (const c of t.off_commands) lines.push(`execute if score @s ${t.score} matches 0 run ${c}`);
+    lines.push("");
+    lines.push(`execute if score @s ${t.score} matches 1 run ${tellrawLine(t.on_name)}`);
+    lines.push(`execute if score @s ${t.score} matches 0 run ${tellrawLine(t.off_name)}`);
+    lines.push(`function ${menuFunctionPrefix(menu)}/fill`);
+    return lines;
+  }
+
+  if (w.kind === "random") {
+    const rewards = w.random.rewards;
+    const totalWeight = rewards.reduce((sum, r) => sum + r.weight, 0);
+    lines.push(...playsound(w.sound));
+    lines.push(`execute store result score @s guigen_rand run random value 0..${totalWeight - 1}`);
+    lines.push("");
+    let lo = 0;
+    for (const r of rewards) {
+      const hi = lo + r.weight - 1;
+      const guard = `execute if score @s guigen_rand matches ${lo}..${hi} run `;
+      for (const c of r.commands) lines.push(`${guard}${c}`);
+      for (const fn of r.functions) lines.push(`${guard}function ${fn}`);
+      if (r.message) lines.push(`${guard}${tellrawLine(r.message)}`);
+      lo = hi + 1;
+    }
+    lines.push("", `scoreboard players reset @s guigen_rand`);
+    if (w.success_message) lines.push(tellrawLine(w.success_message));
+    lines.push(`function ${menuFunctionPrefix(menu)}/fill`);
+    return lines;
+  }
+
+  if (w.kind === "counter") {
+    const s = w.counter_score;
+    const d = w.counter_delta;
+    const mn = w.counter_min, mx = w.counter_max;
+    const stepCmd = d >= 0
+      ? `scoreboard players add @s ${s} ${d}`
+      : `scoreboard players remove @s ${s} ${Math.abs(d)}`;
+    lines.push(...playsound(w.sound));
+    lines.push(stepCmd);
+    if (w.counter_wrap) {
+      // Wrap instead of clamp: overshoot past max rolls back to min,
+      // undershoot past min rolls back to max. Range width used so a
+      // single step never skips values even if delta > range width.
+      const rangeWidth = mx - mn + 1;
+      lines.push(
+        `execute if score @s ${s} matches ${mx + 1}.. run scoreboard players set @s ${s} ${mn}`,
+        `execute if score @s ${s} matches ..${mn - 1} run scoreboard players set @s ${s} ${mx}`
+      );
+      if (rangeWidth <= 0) {
+        lines.push(`# warning: counter_min >= counter_max, wrap has no valid range`);
+      }
+    } else {
+      lines.push(
+        `execute if score @s ${s} matches ${mx + 1}.. run scoreboard players set @s ${s} ${mx}`,
+        `execute if score @s ${s} matches ..${mn - 1} run scoreboard players set @s ${s} ${mn}`
+      );
+    }
+    lines.push(
+      `tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},{"text":"${s} = ","color":"yellow"},{"score":{"name":"@s","objective":"${s}"},"color":"gold"}]`,
+      `function ${menuFunctionPrefix(menu)}/fill`
+    );
+    return lines;
+  }
+
+  if (w.condition != null) {
+    const cond = w.condition;
+    const fail = cond.fail_message || mkText("Condition failed.", { color: "red" });
+
+    function successBlock(prefix) {
+      const block = [];
+      block.push(...emitActions(w, prefix));
+      if (w.success_message) block.push(`${prefix}${tellrawLine(w.success_message)}`);
+      return block;
+    }
+
+    if (cond.type === "item_count_lt") {
+      lines.push(`execute store result score @s guigen_tmp run clear @s ${cond.item} 0`);
+      lines.push(`execute if score @s guigen_tmp matches ${cond.max_count}.. run ${tellrawLine(fail)}`);
+      const ok = `execute if score @s guigen_tmp matches ..${cond.max_count - 1} run `;
+      lines.push(...successBlock(ok));
+    } else if (cond.type === "item_count_gte") {
+      lines.push(`execute store result score @s guigen_tmp run clear @s ${cond.item} 0`);
+      lines.push(`execute if score @s guigen_tmp matches ..${cond.min_count - 1} run ${tellrawLine(fail)}`);
+      const ok = `execute if score @s guigen_tmp matches ${cond.min_count}.. run `;
+      lines.push(...successBlock(ok));
+    } else if (cond.type === "score") {
+      const ok = `execute if score @s ${cond.score} matches ${cond.matches} run `;
+      lines.push(...successBlock(ok));
+      lines.push(`execute unless score @s ${cond.score} matches ${cond.matches} run ${tellrawLine(fail)}`);
+    } else if (cond.type === "has_tag") {
+      const ok = `execute if entity @s[tag=${cond.tag}] run `;
+      lines.push(...successBlock(ok));
+      lines.push(`execute unless entity @s[tag=${cond.tag}] run ${tellrawLine(fail)}`);
+    } else if (cond.type === "gamemode") {
+      const ok = `execute if entity @s[gamemode=${cond.gamemode}] run `;
+      lines.push(...successBlock(ok));
+      lines.push(`execute unless entity @s[gamemode=${cond.gamemode}] run ${tellrawLine(fail)}`);
+    } else {
+      lines.push(...emitActions(w));
+      if (w.success_message) lines.push(tellrawLine(w.success_message));
+    }
+
+    lines.push(`function ${menuFunctionPrefix(menu)}/fill`);
+    return lines;
+  }
+
+  lines.push(...emitActions(w));
+  if (w.success_message) lines.push(tellrawLine(w.success_message));
+  lines.push(`function ${menuFunctionPrefix(menu)}/fill`);
+  return lines;
+}
+
+function generateHandlers(menu, out) {
+  const seen = new Set();
+  for (const w of interactiveWidgets(menu)) {
+    const aid = resolvedActionId(w);
+    if (seen.has(aid)) continue;
+    seen.add(aid);
+    const content = handlerFor(menu, w).join("\n").replace(/\s+$/, "") + "\n";
+    out.set(`${clickDirPath(menu)}/${aid}.mcfunction`, content);
+  }
+}
+
+// ---- generators/lifecycle.py ---------------------------------------------------
+
+function generateLoad(menu, out) {
+  const lines = ["# Auto-generated core load"];
+  const scores = collectScores(menu).slice();
+  for (const w of interactiveWidgets(menu)) {
+    if (parseInt(w.cooldown_ticks || 0, 10) > 0) {
+      const sc = cdScore(resolvedActionId(w));
+      if (!scores.includes(sc)) scores.push(sc);
+    }
+  }
+  for (const score of scores) lines.push(`scoreboard objectives add ${score} dummy`);
+  const cart = `@e[type=${containerEntityId(menu.container)},tag=${menuTag(menu)}]`;
+  lines.push(
+    "",
+    `execute as ${cart} run data modify entity @s Items set value []`,
+    `kill ${cart}`,
+    "",
+    `tellraw @a [{"text":"[GUI-GENERATOR] ","color":"gray"},{"text":"Loaded. /function ${menuFunctionPrefix(menu)}/open","color":"green"}]`,
+    ""
+  );
+  out.set(`${coreDirPath(menu)}/load.mcfunction`, lines.join("\n"));
+}
+
+function generateOpen(menu, out) {
+  const nbt = containerSummonNbt(menu.container, [`${menu.namespace}.menu`, menuTag(menu)], menu.display_name);
+  const lines = [
+    "# Auto-generated open",
+    `function ${menuFunctionPrefix(menu)}/close`,
+    "",
+    `summon ${containerEntityId(menu.container)} ~ ~ ~ ${nbt}`,
+    "",
+    "scoreboard players set @s guigen_page 0",
+  ];
+  const inited = new Set();
+  for (const w of allWidgets(menu)) {
+    const scoresToInit = [];
+    if (w.toggle) scoresToInit.push(w.toggle.score);
+    if (w.counter_score) scoresToInit.push(w.counter_score);
+    if (w.progress_score) scoresToInit.push(w.progress_score);
+    for (const sc of scoresToInit) {
+      if (inited.has(sc)) continue;
+      inited.add(sc);
+      lines.push(`execute unless score @s ${sc} matches 0.. run scoreboard players set @s ${sc} 0`);
+    }
+  }
+  lines.push(
+    `function ${menuFunctionPrefix(menu)}/fill`,
+    `scoreboard players set @s guigen_menu_timer ${menu.timer_ticks}`,
+    "",
+    `tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},{"text":"Menu opened. Right-click the cart, then SHIFT-click buttons.","color":"yellow"}]`,
+    ""
+  );
+  out.set(`${menuDirPath(menu)}/open.mcfunction`, lines.join("\n"));
+}
+
+function generateClose(menu, out) {
+  const cart = `@e[type=${containerEntityId(menu.container)},tag=${menuTag(menu)},sort=nearest,limit=1]`;
+  const lines = ["# Auto-generated close", "# Empty slots first so kill does not drop GUI items"];
+  for (let slot = 0; slot < containerSlotCount(menu.container); slot++) {
+    lines.push(`execute as ${cart} run ${itemAirCommand("@s", slot)}`);
+  }
+  lines.push(
+    `kill @e[type=${containerEntityId(menu.container)},tag=${menuTag(menu)}]`,
+    clearAllWidgets(),
+    "clear @s *[custom_data~{guigen:{widget:1}}]",
+    "scoreboard players reset @s guigen_menu_timer",
+    "scoreboard players reset @s guigen_page",
+    ""
+  );
+  out.set(`${menuDirPath(menu)}/close.mcfunction`, lines.join("\n"));
+}
+
+function generateGiveOpener(menu, out) {
+  const name = (menu.opener_name || "GUI Menu Key").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const lore = (menu.opener_lore || `Run /function ${menuFunctionPrefix(menu)}/open`)
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"');
+  const lines = [
+    "# Auto-generated give_opener",
+    "give @s minecraft:knowledge_book[" +
+      `custom_name={text:"${name}",italic:false,color:"gold"},` +
+      `lore=[{text:"${lore}",italic:false,color:"gray"}],` +
+      "custom_data={guigen:{opener:1b}}] 1",
+    "",
+    `tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},{"text":"You received a Menu Key.","color":"gold"}]`,
+    "",
+  ];
+  out.set(`${menuDirPath(menu)}/give_opener.mcfunction`, lines.join("\n"));
+}
+
+function generateTags(menu, out) {
+  out.set(
+    `data/minecraft/tags/function/load.json`,
+    JSON.stringify({ values: [`${menuCorePrefix(menu)}/load`] }, null, 2) + "\n"
+  );
+  out.set(
+    `data/minecraft/tags/function/tick.json`,
+    JSON.stringify({ values: [`${menuCorePrefix(menu)}/tick`] }, null, 2) + "\n"
+  );
+}
+
+function generatePackMcmeta(out, description) {
+  const data = { pack: { description, min_format: 119, max_format: 119 } };
+  out.set(`pack.mcmeta`, JSON.stringify(data, null, 2) + "\n");
+}
+
+// ---- generators/tick.py ----------------------------------------------------
+
+const VACUUM_TYPES = ["label", "separator", "progress"];
+
+function detectBlock(widgetType, widgetId, handlerFn) {
+  return [
+    `execute as @a[scores={guigen_menu_timer=1..}] store success score @s guigen_click run ${clearByTypeId(widgetType, widgetId, 1)}`,
+    `execute as @a[scores={guigen_click=1}] at @s run function ${handlerFn}`,
+    `scoreboard players reset @a[scores={guigen_click=1}] guigen_click`,
+    "",
+  ];
+}
+
+function generateTick(menu, out) {
+  const entity = containerEntityId(menu.container);
+  const cart = `@e[type=${entity},tag=${menuTag(menu)},sort=nearest,limit=1]`;
+
+  let lines = [
+    "# Auto-generated core tick",
+    "# Timer",
+    "execute as @a[scores={guigen_menu_timer=1..}] run scoreboard players remove @s guigen_menu_timer 1",
+    `execute as @a[scores={guigen_menu_timer=0}] at @s run function ${menuFunctionPrefix(menu)}/close`,
+    "",
+    "# Cooldown tick-down",
+  ];
+
+  const cdScores = [];
+  for (const w of interactiveWidgets(menu)) {
+    const ticks = parseInt(w.cooldown_ticks || 0, 10);
+    if (ticks > 0) {
+      const sc = cdScore(resolvedActionId(w));
+      if (!cdScores.includes(sc)) cdScores.push(sc);
+    }
+  }
+  for (const sc of cdScores) {
+    lines.push(`execute as @a[scores={${sc}=1..}] run scoreboard players remove @s ${sc} 1`);
+  }
+  if (cdScores.length) lines.push("");
+
+  if (menu.follow) {
+    // Cart is teleported onto the player every tick, so it can never
+    // drift out of distance_close range on its own. Still close if the
+    // cart was removed some other way (killed, unloaded, etc).
+    lines.push(
+      "# Follow (cart is kept on the player; distance_close cannot be exceeded)",
+      `execute as @a[scores={guigen_menu_timer=1..}] at @s as ${cart} run tp @s ~ ~ ~`,
+      `execute as @a[scores={guigen_menu_timer=1..}] at @s unless entity @e[type=${entity},tag=${menuTag(menu)},limit=1] run function ${menuFunctionPrefix(menu)}/close`,
+      ""
+    );
+  } else {
+    // Not following: cart stays put where it was opened. Close the menu
+    // once the player wanders past distance_close, and also if the cart
+    // disappeared entirely.
+    const dist = menu.distance_close;
+    lines.push(
+      "# Not following — enforce distance_close and cart-presence",
+      `execute as @a[scores={guigen_menu_timer=1..}] at @s unless entity @e[type=${entity},tag=${menuTag(menu)},limit=1] run function ${menuFunctionPrefix(menu)}/close`,
+      `execute as @a[scores={guigen_menu_timer=1..}] at @s unless entity @e[type=${entity},tag=${menuTag(menu)},distance=..${dist},limit=1] run function ${menuFunctionPrefix(menu)}/close`,
+      ""
+    );
+  }
+
+  for (const w of allWidgets(menu)) {
+    if (w.toggle && w.toggle.tick_while_on.length) {
+      for (const cmd of w.toggle.tick_while_on) {
+        lines.push(`execute as @a[scores={${w.toggle.score}=1}] run ${cmd}`);
+      }
+      lines.push("");
+    }
+  }
+
+  lines.push("# Click detection", "");
+
+  const seen = new Set();
+  for (const w of interactiveWidgets(menu)) {
+    const aid = resolvedActionId(w);
+    if (seen.has(aid)) continue;
+    seen.add(aid);
+    const handler = `${menuClickPrefix(menu)}/${aid}`;
+    lines.push(...detectBlock(w.kind, aid, handler));
+  }
+
+  lines.push("# Vacuum GUI items from player", "");
+  const presentKinds = new Set(allWidgets(menu).map((w) => w.kind));
+  presentKinds.add("separator");
+  for (const kind of VACUUM_TYPES) {
+    if (presentKinds.has(kind)) {
+      lines.push(`execute as @a[scores={guigen_menu_timer=1..}] run ${clearByType(kind)}`);
+    }
+  }
+  lines.push(`execute as @a[scores={guigen_menu_timer=1..}] run ${clearAllWidgets()}`);
+  lines.push(`execute as @a[scores={guigen_menu_timer=1..}] run clear @s *[custom_data~{guigen:{widget:1}}]`);
+
+  lines.push(
+    "",
+    "# Restore layout every tick",
+    `execute as @a[scores={guigen_menu_timer=1..}] at @s run function ${menuFunctionPrefix(menu)}/fill`,
+    "",
+    "# Kill dropped GUI items",
+    `kill @e[type=minecraft:item,nbt={Item:{components:{"minecraft:custom_data":{guigen:{widget:1}}}}}]`,
+    `kill @e[type=minecraft:item,nbt={Item:{components:{custom_data:{guigen:{widget:1}}}}}]`,
+    ""
+  );
+
+  out.set(`${coreDirPath(menu)}/tick.mcfunction`, lines.join("\n"));
+}
+
+// ---- builders/paths.py (path helpers, string-based since out is flat map) ------
+
+function nsFunctionsPath(menu) {
+  return `data/${menu.namespace}/function`;
+}
+function coreDirPath(menu) {
+  return `${nsFunctionsPath(menu)}/core`;
+}
+function menuDirPath(menu) {
+  return `${nsFunctionsPath(menu)}/menu/${menu.menu_id}`;
+}
+function pageDirPath(menu) {
+  return `${menuDirPath(menu)}/page`;
+}
+function clickDirPath(menu) {
+  return `${menuDirPath(menu)}/click`;
+}
+
+// ---- top-level generate() (mirrors generate.py) --------------------------------
+
+function generateDatapack(menu) {
+  const out = new Map();
+  generateLoad(menu, out);
+  generateOpen(menu, out);
+  generateClose(menu, out);
+  generateGiveOpener(menu, out);
+  generateFillRouter(menu, out);
+  generatePageFills(menu, out);
+  generateHandlers(menu, out);
+  generateTick(menu, out);
+  generateTags(menu, out);
+  generatePackMcmeta(out, menu.pack_description || `${menu.display_name} (generated by guigen)`);
+  return out;
+}
+
+function summarize(menu) {
+  return {
+    namespace: menu.namespace,
+    menu_id: menu.menu_id,
+    pages: menu.pages.length,
+    widgets: allWidgets(menu).length,
+    container: `${menu.container.type} (${containerSlotCount(menu.container)} slots)`,
+    open_command: `/function ${menuFunctionPrefix(menu)}/open`,
+  };
+}
+
+// ---- validation (UI-only helper, not part of the ported Python core) ------
+// generatePageFills/generateHandlers never error on these cases — they just
+// silently let the last widget win a slot, or let the first widget's action_id
+// own the handler — so this walks the parsed menu and surfaces both as
+// non-fatal warnings the user can act on.
+
+function validateMenu(menu) {
+  const warnings = [];
+  const slotCount = containerSlotCount(menu.container);
+
+  for (const page of menu.pages) {
+    const bySlot = new Map();
+    for (const w of page.widgets) {
+      for (const s of occupiedSlots(w)) {
+        if (!bySlot.has(s)) bySlot.set(s, []);
+        bySlot.get(s).push(w);
+        if (s < 0 || s >= slotCount) {
+          warnings.push(
+            `Page ${page.index} (${page.name}): slot ${s} is out of range for ${menu.container.type} (valid: 0–${slotCount - 1}).`
+          );
+        }
+      }
+    }
+    for (const [slot, widgets] of bySlot) {
+      if (widgets.length > 1) {
+        const names = widgets.map((w) => resolvedActionId(w)).join(", ");
+        warnings.push(
+          `Page ${page.index} (${page.name}): slot ${slot} is claimed by ${widgets.length} widgets (${names}) — only the last one placed will actually show.`
+        );
+      }
+    }
+  }
+
+  // nav/confirm targets are only ever used to *set* guigen_page — nothing
+  // checks the value is a real page, so a bad target_page silently produces
+  // a working button that switches to a page with no fill function, leaving
+  // the container looking "stuck" with the previous page's items.
+  const validIndices = new Set(menu.pages.map((p) => p.index));
+  for (const w of allWidgets(menu)) {
+    if (w.kind === "nav" && !validIndices.has(w.target_page)) {
+      warnings.push(
+        `Widget "${resolvedActionId(w)}" (nav) targets page ${w.target_page}, which does not exist. Valid pages: ${[...validIndices].sort((a, b) => a - b).join(", ")}.`
+      );
+    }
+    if (w.kind === "confirm" && !validIndices.has(w.confirm_page)) {
+      warnings.push(
+        `Widget "${resolvedActionId(w)}" (confirm) targets page ${w.confirm_page}, which does not exist. Valid pages: ${[...validIndices].sort((a, b) => a - b).join(", ")}.`
+      );
+    }
+  }
+
+  const seenActionIds = new Map();
+  for (const w of interactiveWidgets(menu)) {
+    const aid = resolvedActionId(w);
+    if (!seenActionIds.has(aid)) seenActionIds.set(aid, []);
+    seenActionIds.get(aid).push(w);
+  }
+  for (const [aid, widgets] of seenActionIds) {
+    if (widgets.length > 1) {
+      warnings.push(
+        `action_id "${aid}" is reused by ${widgets.length} widgets — only the first widget's click behavior is generated; the rest will trigger that same handler regardless of their own commands.`
+      );
+    }
+  }
+
+  return warnings;
+}
+
+// Exports (for both Node testing and browser <script> global usage)
+const GuigenCore = {
+  loadMenuFromJsonString,
+  menuFromDict,
+  generateDatapack,
+  summarize,
+  menuFunctionPrefix,
+};
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = GuigenCore;
+}
+if (typeof window !== "undefined") {
+  window.GuigenCore = GuigenCore;
+}
+// ============================================================================
+// App wiring — uses GuigenCore (defined above) for all generation logic.
+// ============================================================================
+
+const SAMPLE_CONFIG = null;
+
+const el = {
+  editor: document.getElementById("editor"),
+  editorCount: document.getElementById("editorCount"),
+  statusBar: document.getElementById("statusBar"),
+  fileInput: document.getElementById("fileInput"),
+  generateBtn: document.getElementById("generateBtn"),
+  downloadBtn: document.getElementById("downloadBtn"),
+  tree: document.getElementById("tree"),
+  treeCount: document.getElementById("treeCount"),
+  previewPath: document.getElementById("previewPath"),
+  previewContent: document.getElementById("previewContent"),
+  sumNs: document.getElementById("sumNs"),
+  sumMenu: document.getElementById("sumMenu"),
+  sumCounts: document.getElementById("sumCounts"),
+  sumContainer: document.getElementById("sumContainer"),
+  toast: document.getElementById("toast"),
+  themeToggle: document.getElementById("themeToggle"),
+  saveConfigBtn: document.getElementById("saveConfigBtn"),
+  warnBanner: document.getElementById("warnBanner"),
+  warnHead: document.getElementById("warnHead"),
+  warnList: document.getElementById("warnList"),
+};
+
+let lastOutput = null; // Map<path, content>
+let lastMenuId = "datapack";
+
+function setTheme() {
+  try {
+    const stored = window.localStorage.getItem("guigenmc_theme");
+    if (stored) document.documentElement.setAttribute("data-theme", stored);
+  } catch (e) { /* storage may be unavailable; ignore */ }
+}
+setTheme();
+
+// Feature: light/dark theme toggle. Previously the CSS and setTheme() both
+// supported a stored "guigenmc_theme" value, but nothing in the UI ever wrote
+// one — there was no way to actually switch themes. This button fixes that.
+function currentTheme() {
+  const attr = document.documentElement.getAttribute("data-theme");
+  if (attr === "light" || attr === "dark") return attr;
+  const prefersLight = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+  return prefersLight ? "light" : "dark";
+}
+function updateThemeToggleLabel() {
+  const t = currentTheme();
+  el.themeToggle.textContent = t === "light" ? "☾ Dark" : "☀ Light";
+  el.themeToggle.title = t === "light" ? "Switch to dark theme" : "Switch to light theme";
+}
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  try { window.localStorage.setItem("guigenmc_theme", theme); } catch (e) { /* storage may be unavailable; ignore */ }
+  updateThemeToggleLabel();
+}
+el.themeToggle.addEventListener("click", () => {
+  applyTheme(currentTheme() === "light" ? "dark" : "light");
+});
+updateThemeToggleLabel();
+
+function showToast(msg, kind) {
+  el.toast.textContent = msg;
+  el.toast.className = "toast show" + (kind ? " " + kind : "");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => {
+    el.toast.className = "toast";
+  }, 2400);
+}
+
+function setStatus(kind, msg) {
+  el.statusBar.className = "status-bar " + kind;
+  el.statusBar.textContent = msg;
+}
+
+function updateEditorCount() {
+  const text = el.editor.value;
+  const lines = text.split("\n").length;
+  el.editorCount.textContent = text.trim() ? `${lines} lines · ${text.length} chars` : "";
+}
+
+el.editor.addEventListener("input", updateEditorCount);
+
+// Feature: autosave the editor's raw text to this browser (debounced) so a
+// reload or crash doesn't lose an in-progress config. Restored on load below.
+let autosaveTimer = null;
+function scheduleAutosave() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    try { window.localStorage.setItem("guigenmc_last_config", el.editor.value); } catch (e) { /* storage may be unavailable; ignore */ }
+  }, 500);
+}
+el.editor.addEventListener("input", scheduleAutosave);
+
+function loadJsonIntoEditor(obj, sourceLabel) {
+  el.editor.value = JSON.stringify(obj, null, 2);
+  updateEditorCount();
+  setStatus("idle", sourceLabel + " loaded. Hit Generate.");
+  clearOutput();
+}
+
+el.fileInput.addEventListener("change", (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result));
+      loadJsonIntoEditor(parsed, `"${file.name}"`);
+    } catch (err) {
+      // Load raw text anyway so the user can see & fix it, but warn.
+      el.editor.value = String(reader.result);
+      updateEditorCount();
+      setStatus("err", `"${file.name}" is not valid JSON: ${err.message}`);
+      clearOutput();
+    }
+  };
+  reader.onerror = () => showToast("Couldn't read the file.", "err");
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+function renderWarnings(warnings) {
+  if (!warnings || !warnings.length) {
+    el.warnBanner.classList.add("hidden");
+    el.warnHead.textContent = "";
+    el.warnList.innerHTML = "";
+    return;
+  }
+  el.warnBanner.classList.remove("hidden");
+  el.warnHead.textContent = `⚠ ${warnings.length} warning${warnings.length > 1 ? "s" : ""} — generated anyway, but worth checking:`;
+  el.warnList.innerHTML = "";
+  for (const w of warnings) {
+    const li = document.createElement("li");
+    li.textContent = w;
+    el.warnList.appendChild(li);
+  }
+}
+
+function clearOutput() {
+  lastOutput = null;
+  el.downloadBtn.disabled = true;
+  renderWarnings([]);
+  el.tree.innerHTML = '<div class="tree-empty">No files generated yet.<br>Hit Generate with the config on the left<br>and the datapack tree will show up here.</div>';
+  el.treeCount.textContent = "";
+  el.previewPath.textContent = "—";
+  el.previewContent.textContent = "";
+  el.sumNs.textContent = "—";
+  el.sumMenu.textContent = "—";
+  el.sumCounts.textContent = "—";
+  el.sumContainer.textContent = "—";
+}
+
+function buildTree(paths) {
+  // paths: array of relative path strings -> nested {dirs:{}, files:[]}
+  const root = { dirs: {}, files: [] };
+  for (const p of paths) {
+    const parts = p.split("/");
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const seg = parts[i];
+      if (!node.dirs[seg]) node.dirs[seg] = { dirs: {}, files: [] };
+      node = node.dirs[seg];
+    }
+    node.files.push(parts[parts.length - 1]);
+  }
+  return root;
+}
+
+function iconFor(name) {
+  if (name.endsWith(".mcfunction")) return "ƒ";
+  if (name.endsWith(".json")) return "{}";
+  if (name.endsWith(".mcmeta")) return "◆";
+  return "·";
+}
+
+function renderTree(out) {
+  const paths = Array.from(out.keys()).sort();
+  const root = buildTree(paths);
+
+  function renderDir(node, prefix, depth) {
+    const wrap = document.createElement("div");
+    // directories first (sorted), then files
+    const dirNames = Object.keys(node.dirs).sort();
+    for (const dname of dirNames) {
+      const dnode = node.dirs[dname];
+      const container = document.createElement("div");
+      container.className = "tree-node";
+      const header = document.createElement("div");
+      header.className = "tree-dir";
+      header.innerHTML = `<span class="caret">▾</span><span>${dname}/</span>`;
+      const childrenWrap = document.createElement("div");
+      childrenWrap.className = "tree-children";
+      childrenWrap.appendChild(renderDir(dnode, prefix + dname + "/", depth + 1));
+      header.addEventListener("click", () => {
+        header.classList.toggle("collapsed");
+        childrenWrap.classList.toggle("hidden");
+      });
+      container.appendChild(header);
+      container.appendChild(childrenWrap);
+      wrap.appendChild(container);
+    }
+    const fileNames = node.files.slice().sort();
+    for (const fname of fileNames) {
+      const fullPath = prefix + fname;
+      const row = document.createElement("div");
+      row.className = "tree-file";
+      row.dataset.path = fullPath;
+      const content = out.get(fullPath) || "";
+      const sizeLabel = content.length < 1024 ? `${content.length}B` : `${(content.length / 1024).toFixed(1)}K`;
+      row.innerHTML = `<span>${iconFor(fname)}</span><span>${fname}</span><span class="fsize">${sizeLabel}</span>`;
+      row.addEventListener("click", () => {
+        document.querySelectorAll(".tree-file.active").forEach((n) => n.classList.remove("active"));
+        row.classList.add("active");
+        showPreview(fullPath, content);
+      });
+      wrap.appendChild(row);
+    }
+    return wrap;
+  }
+
+  el.tree.innerHTML = "";
+  el.tree.appendChild(renderDir(root, "", 0));
+  el.treeCount.textContent = `${paths.length} files`;
+}
+
+function showPreview(path, content) {
+  el.previewPath.textContent = path;
+  el.previewContent.textContent = content;
+}
+
+function runGenerate() {
+  const raw = el.editor.value;
+  if (!raw.trim()) {
+    setStatus("err", "config is empty.");
+    clearOutput();
+    return;
+  }
+  let menu;
+  try {
+    menu = GuigenCore.loadMenuFromJsonString(raw);
+  } catch (err) {
+    setStatus("err", "Error: " + err.message);
+    clearOutput();
+    return;
+  }
+  let out, summary;
+  try {
+    out = GuigenCore.generateDatapack(menu);
+    summary = GuigenCore.summarize(menu);
+  } catch (err) {
+    setStatus("err", "Generation error: " + err.message);
+    clearOutput();
+    return;
+  }
+
+  lastOutput = out;
+  lastMenuId = menu.menu_id || "datapack";
+  el.downloadBtn.disabled = false;
+
+  el.sumNs.textContent = summary.namespace;
+  el.sumMenu.textContent = summary.menu_id;
+  el.sumCounts.textContent = `${summary.pages} / ${summary.widgets}`;
+  el.sumContainer.textContent = summary.container;
+
+  renderTree(out);
+  renderWarnings(validateMenu(menu));
+  setStatus("ok", `✓ Generated — ${out.size} files. Open with: ${summary.open_command}`);
+
+  // Auto-preview pack.mcmeta as a friendly first look
+  const firstFile = "pack.mcmeta";
+  if (out.has(firstFile)) {
+    const row = el.tree.querySelector(`.tree-file[data-path="${firstFile}"]`);
+    if (row) row.click();
+  }
+}
+
+el.generateBtn.addEventListener("click", runGenerate);
+
+async function runDownload() {
+  if (!lastOutput) return;
+  if (typeof JSZip === "undefined") {
+    showToast("JSZip failed to load — check your network connection.", "err");
+    return;
+  }
+  try {
+    const zip = new JSZip();
+    for (const [path, content] of lastOutput) {
+      zip.file(path, content);
+    }
+    const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${lastMenuId}_datapack.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    showToast("Downloaded: " + a.download, "ok");
+  } catch (err) {
+    showToast("Couldn't build the zip: " + err.message, "err");
+  }
+}
+
+el.downloadBtn.addEventListener("click", runDownload);
+
+// Feature: save the current config as its own .json (separate from the
+// generated datapack .zip) so it can be versioned, shared, or reloaded later.
+el.saveConfigBtn.addEventListener("click", () => {
+  const raw = el.editor.value;
+  if (!raw.trim()) {
+    showToast("Nothing to save — the config is empty.", "err");
+    return;
+  }
+  let filename = "config.json";
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && parsed.menu_id) {
+      filename = `${parsed.menu_id}.json`;
+    }
+  } catch (e) {
+    // Not valid JSON yet — still let the user save their in-progress text.
+  }
+  try {
+    const blob = new Blob([raw], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    showToast("Saved: " + filename, "ok");
+  } catch (err) {
+    showToast("Couldn't save the config: " + err.message, "err");
+  }
+});
+
+// Keyboard shortcut: Ctrl/Cmd+Enter to generate
+el.editor.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    e.preventDefault();
+    runGenerate();
+  }
+});
+
+// Initial load: restore the last-edited config from this browser if one was
+// autosaved, otherwise fall back to the sample config. Not yet generated.
+(function initialLoad() {
+  let restored = null;
+  try {
+    const saved = window.localStorage.getItem("guigenmc_last_config");
+    if (saved && saved.trim()) restored = saved;
+  } catch (e) { /* storage may be unavailable; ignore */ }
+
+  if (restored != null) {
+    el.editor.value = restored;
+    updateEditorCount();
+    setStatus("idle", "Restored your last config from this browser. Hit Generate.");
+    clearOutput();
+  } else {
+    el.editor.value = "";
+    updateEditorCount();
+    setStatus("idle", "Paste or Load a config JSON, then hit Generate.");
+    clearOutput();
+  }
+})();
+</script>
+</body>
+</html>
