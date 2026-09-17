@@ -47,7 +47,7 @@ class Container:
         flags.append("CustomNameVisible:0b")
         if custom_name:
             flags.append(
-                f'CustomName={{text:"{_escape_snbt_string(custom_name)}",italic:false}}'
+                f'CustomName:{{text:"{_escape_snbt_string(custom_name)}",italic:false}}'
             )
         flags.append(f"Tags:[{tag_list}]")
         return "{" + ",".join(flags) + "}"
