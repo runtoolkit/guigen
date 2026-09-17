@@ -14,8 +14,8 @@ from .widgets import (
     progress,
 )
 from .menu import Menu, Page, Container
+from .loader import load_menu, menu_from_dict
 
-# backward-compat
 Button = Widget
 
 __all__ = [
@@ -37,4 +37,6 @@ __all__ = [
     "Menu",
     "Page",
     "Container",
+    "load_menu",
+    "menu_from_dict",
 ]

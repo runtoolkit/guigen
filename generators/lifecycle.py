@@ -94,11 +94,15 @@ def generate_close(menu: Menu, out: Path) -> None:
 
 
 def generate_give_opener(menu: Menu, out: Path) -> None:
+    name = (menu.opener_name or "GUI Menu Key").replace("\\", "\\\\").replace('"', '\\"')
+    lore = (
+        menu.opener_lore or f"Run /function {menu.function_prefix}/open"
+    ).replace("\\", "\\\\").replace('"', '\\"')
     lines = [
         "# Auto-generated give_opener",
         "give @s minecraft:knowledge_book["
-        'custom_name={text:"GUI Menu Key",italic:false,color:"gold"},'
-        f'lore=[{{text:"Run /function {menu.function_prefix}/open",italic:false,color:"gray"}}],'
+        f'custom_name={{text:"{name}",italic:false,color:"gold"}},'
+        f'lore=[{{text:"{lore}",italic:false,color:"gray"}}],'
         "custom_data={guigen:{opener:1b}}] 1",
         "",
         'tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},{"text":"You received a Menu Key.","color":"gold"}]',
@@ -124,8 +128,8 @@ def generate_pack_mcmeta(out: Path, description: str) -> None:
     data = {
         "pack": {
             "description": description,
-            "min_format": 121,
-            "max_format": 121,
+            "min_format": 119,
+            "max_format": 119,
         }
     }
     (out / "pack.mcmeta").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
