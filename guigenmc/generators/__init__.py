@@ -9,7 +9,6 @@ from .fill import generate_fill_router, generate_page_fills
 from .handlers import generate_handlers
 from .lifecycle import (
     generate_close,
-    generate_give_opener,
     generate_load,
     generate_open,
     generate_pack_mcmeta,
@@ -24,7 +23,6 @@ def generate_datapack(menu: dict[str, Any]) -> dict[str, str]:
     generate_load(menu, out)
     generate_open(menu, out)
     generate_close(menu, out)
-    generate_give_opener(menu, out)
     generate_fill_router(menu, out)
     generate_page_fills(menu, out)
     generate_handlers(menu, out)
