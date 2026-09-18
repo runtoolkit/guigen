@@ -135,6 +135,7 @@ def generate_give_opener(menu: dict[str, Any], out: dict[str, str]) -> None:
         "give @s minecraft:knowledge_book["
         f'custom_name={{text:"{name}",italic:false,color:"gold"}},'
         f'lore=[{{text:"{lore}",italic:false,color:"gray"}}],'
+        f'minecraft:consumable={consume_seconds:0,animation:"none",has_consume_particles:0},'
         "custom_data={guigen:{opener:1b}}] 1",
         "",
         'tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},'
