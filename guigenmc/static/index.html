@@ -1493,13 +1493,8 @@ function generateGiveOpener(menu, out) {
     `custom_name={text:"${name}",italic:false,color:"gold"},` +
     `lore=[{text:"${lore}",italic:false,color:"gray"}],` +
     "custom_data={guigen:{opener:1b}}," +
-    'consumable={consume_seconds:0,animation:"none",has_consume_particles:0},' +
-    'use_remainder={id:"minecraft:knowledge_book",count:1,components:{' +
-    `custom_name:{text:"${name}",italic:false,color:"gold"},` +
-    `lore:[{text:"${lore}",italic:false,color:"gray"}],` +
-    "custom_data:{guigen:{opener:1b}}," +
-    'consumable:{consume_seconds:0,animation:"none",has_consume_particles:0}' +
-    "}}";
+    'consumable={consume_seconds:1,animation:"none",has_consume_particles:0b}' +
+    "]";
   const lines = [
     "# Auto-generated give_opener",
     `give @s minecraft:knowledge_book[${components}] 1`,

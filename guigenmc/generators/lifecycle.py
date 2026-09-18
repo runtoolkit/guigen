@@ -139,14 +139,8 @@ def generate_give_opener(menu: dict[str, Any], out: dict[str, str]) -> None:
         f'custom_name={{text:"{name}",italic:false,color:"gold"}},'
         f'lore=[{{text:"{lore}",italic:false,color:"gray"}}],'
         "custom_data={guigen:{opener:1b}},"
-        'consumable={consume_seconds:0,animation:"none",has_consume_particles:0},'
-        "use_remainder={id:\"minecraft:knowledge_book\",count:1,"
-        "components:{"
-        f'custom_name:{{text:"{name}",italic:false,color:"gold"}},'
-        f'lore:[{{text:"{lore}",italic:false,color:"gray"}}],'
-        "custom_data:{guigen:{opener:1b}},"
-        'consumable:{consume_seconds:0,animation:"none",has_consume_particles:0}'
-        "}}"
+        'consumable={consume_seconds:0,animation:"none",has_consume_particles:0}'
+        "["
     )
     lines = [
         "# Auto-generated give_opener",
