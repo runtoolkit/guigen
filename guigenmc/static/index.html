@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>guigenmc — datapack generator</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="jszip.min.js"></script>
 <style>
 :root {
   --bg: #0d1210;
@@ -958,6 +958,11 @@ function loaderWidget(raw) {
     if (w.item === "minecraft:stone") w.item = "minecraft:gray_stained_glass_pane";
   }
 
+  // action_id becomes a function filename; enforce identifier rules
+  const aid = w.action_id || `${w.kind}_${w.slot}`;
+  validateIdentifier(aid, "action_id");
+  if (w.action_id) validateIdentifier(w.action_id, "action_id");
+
   return w;
 }
 
@@ -986,10 +991,26 @@ function loaderContainer(raw) {
   });
 }
 
+function validateIdentifier(value, fieldName) {
+  const s = String(value);
+  if (!s) throw new Error(`Invalid ${fieldName}: must not be empty`);
+  if (s.includes("\0")) throw new Error(`Invalid ${fieldName}: contains NULL byte`);
+  if (s.includes("/") || s.includes("\\")) throw new Error(`Invalid ${fieldName}: contains path separator`);
+  if (s.includes("..")) throw new Error(`Invalid ${fieldName}: contains parent-directory segment`);
+  if (!/^[a-z0-9._-]+$/.test(s)) {
+    throw new Error(
+      `Invalid ${fieldName}: ${JSON.stringify(s)} — only lowercase a-z, 0-9, underscore, hyphen and period are allowed`
+    );
+  }
+  return s;
+}
+
 function menuFromDict(data) {
   if (!("namespace" in data) || !("menu_id" in data)) {
     throw new Error("config requires 'namespace' and 'menu_id'");
   }
+  const namespace = validateIdentifier(data.namespace, "namespace");
+  const menuId = validateIdentifier(data.menu_id, "menu_id");
   const pagesRaw = data.pages || [];
   if (!Array.isArray(pagesRaw) || !pagesRaw.length) {
     throw new Error("config requires non-empty 'pages' list");
@@ -997,9 +1018,9 @@ function menuFromDict(data) {
   const pages = pagesRaw.map((p, i) => loaderPage(p, i));
 
   return {
-    namespace: String(data.namespace),
-    menu_id: String(data.menu_id),
-    display_name: String(data.display_name ?? data.menu_id),
+    namespace: namespace,
+    menu_id: menuId,
+    display_name: String(data.display_name ?? menuId),
     timer_ticks: parseInt(data.timer_ticks ?? 900, 10),
     follow: data.follow ?? true,
     distance_close: parseFloat(data.distance_close ?? 32),
@@ -1974,7 +1995,13 @@ function renderTree(out) {
       container.className = "tree-node";
       const header = document.createElement("div");
       header.className = "tree-dir";
-      header.innerHTML = `<span class="caret">▾</span><span>${dname}/</span>`;
+      const caret = document.createElement("span");
+      caret.className = "caret";
+      caret.textContent = "▾";
+      const dlabel = document.createElement("span");
+      dlabel.textContent = dname + "/";
+      header.appendChild(caret);
+      header.appendChild(dlabel);
       const childrenWrap = document.createElement("div");
       childrenWrap.className = "tree-children";
       childrenWrap.appendChild(renderDir(dnode, prefix + dname + "/", depth + 1));
@@ -1994,7 +2021,16 @@ function renderTree(out) {
       row.dataset.path = fullPath;
       const content = out.get(fullPath) || "";
       const sizeLabel = content.length < 1024 ? `${content.length}B` : `${(content.length / 1024).toFixed(1)}K`;
-      row.innerHTML = `<span>${iconFor(fname)}</span><span>${fname}</span><span class="fsize">${sizeLabel}</span>`;
+      const iconSpan = document.createElement("span");
+      iconSpan.textContent = iconFor(fname);
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = fname;
+      const sizeSpan = document.createElement("span");
+      sizeSpan.className = "fsize";
+      sizeSpan.textContent = sizeLabel;
+      row.appendChild(iconSpan);
+      row.appendChild(nameSpan);
+      row.appendChild(sizeSpan);
       row.addEventListener("click", () => {
         document.querySelectorAll(".tree-file.active").forEach((n) => n.classList.remove("active"));
         row.classList.add("active");

@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+# Pin upper bounds for reproducible builds; setuptools>=61 needed for pyproject.toml.
+requires = ["setuptools>=61,<81", "wheel>=0.40,<1"]
 build-backend = "setuptools.build_meta"
 
 [project]

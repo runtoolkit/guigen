@@ -50,13 +50,17 @@ Aliases: `guigenmc gen`, `guigenmc g`, `guigenmc check`.
 ### UI options
 
 ```bash
-guigenmc ui                  # http://127.0.0.1:8765
+guigenmc ui                  # http://127.0.0.1:8765 (default, localhost only)
 guigenmc ui -p 9000          # custom port
-guigenmc ui --host 0.0.0.0   # Codespaces / remote access
+guigenmc ui --host 0.0.0.0   # Codespaces / remote access — see security note
 guigenmc ui --no-open        # don't open browser
 ```
 
+Default bind address is **127.0.0.1** (localhost only).
+
 In Codespaces: use `--host 0.0.0.0` and open the forwarded port in the browser.
+When binding to all interfaces, guigenmc prints a clear warning: the API has **no authentication**.
+Only use `--host 0.0.0.0` in trusted or isolated environments (port-forwarded Codespaces, local containers, etc.).
 
 ---
 
@@ -186,6 +190,31 @@ Also supports: cost, cooldown, conditions (`item_count_*`, `score`, `has_tag`, `
   }
 }
 ```
+
+---
+
+
+---
+
+## Security model
+
+guigenmc is a **datapack generator**, not a sandbox for Minecraft commands.
+
+| What guigenmc does | What it does **not** do |
+|--------------------|-------------------------|
+| Reads a JSON config and writes `.mcfunction` / datapack files | Run arbitrary OS shell commands |
+| Embeds `commands` / `functions` / `on_open` / `on_close` / `tick_while_on` from your config into the generated datapack | Sandbox or filter Minecraft commands inside the config |
+| Validates `namespace`, `menu_id`, and `action_id` against Minecraft resource-location rules | Protect a multiplayer server from malicious datapack content |
+
+**Implications:**
+
+- Config values such as `commands`, `functions`, `on_open`, `on_close`, and `tick_while_on` are copied into the generated datapack as-is. Anyone who loads that datapack can execute those Minecraft commands.
+- guigenmc itself does **not** execute OS commands from the config.
+- Path traversal via `namespace` / `menu_id` / `action_id` is rejected (identifiers must match `[a-z0-9._-]+`). Generated files and ZIP entries are checked so they cannot escape the output directory.
+- The web UI API (`/api/generate`, `/api/validate`, `/api/zip`) has **no authentication**. Default listen address is localhost. Request bodies are limited to ~2 MiB.
+- The UI ships a **bundled** copy of JSZip (`static/jszip.min.js`) so it works offline; there is no CDN dependency at runtime.
+
+**Identifiers:** `namespace`, `menu_id`, and `action_id` must be non-empty lowercase Minecraft resource-location segments (`a-z`, `0-9`, `_`, `-`, `.`). Values containing `/`, `\`, `..`, NULL bytes, absolute paths, or Windows drive letters are rejected with a clear error (e.g. `Invalid action_id: contains path separator`).
 
 ---
 

@@ -18,7 +18,11 @@ from urllib.parse import urlparse
 from . import __version__
 from .generators import generate_datapack, summarize
 from .models import load_menu_from_file, load_menu_from_json_string
+from .security import ensure_within_output_root, validate_zip_entry_name
 from .validate import validate_menu
+
+# Max POST body size for UI API endpoints (bytes). ~2 MiB is ample for configs.
+MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024
 
 # ---------------------------------------------------------------------------
 # Colors — pure ANSI, works everywhere (GHA, Codespaces, macOS, Linux).
@@ -115,9 +119,14 @@ def cmd_generate(args: argparse.Namespace) -> int:
         if zip_path.exists() and not args.force:
             err(f"{zip_path} already exists. Use --force to overwrite.")
             return 1
-        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            for rel, content in sorted(files.items()):
-                zf.writestr(rel, content)
+        try:
+            with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                for rel, content in sorted(files.items()):
+                    validate_zip_entry_name(rel)
+                    zf.writestr(rel, content)
+        except ValueError as e:
+            err(f"Unsafe path in generated datapack: {e}")
+            return 1
         ok(f"Wrote {C.BOLD}{len(files)}{C.RESET} files → {C.BOLD}{zip_path}{C.RESET}")
     else:
         if out_dir.exists():
@@ -125,10 +134,14 @@ def cmd_generate(args: argparse.Namespace) -> int:
                 err(f"{out_dir} already exists. Use --force to overwrite.")
                 return 1
             shutil.rmtree(out_dir)
-        for rel, content in files.items():
-            dest = out_dir / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(content, encoding="utf-8")
+        try:
+            for rel, content in files.items():
+                dest = ensure_within_output_root(out_dir, rel)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(content, encoding="utf-8")
+        except ValueError as e:
+            err(f"Unsafe path in generated datapack: {e}")
+            return 1
         ok(f"Wrote {C.BOLD}{len(files)}{C.RESET} files → {C.BOLD}{out_dir}/{C.RESET}")
 
     if warnings:
@@ -236,7 +249,30 @@ class GuigenHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-        length = int(self.headers.get("Content-Length", 0))
+        cl_header = self.headers.get("Content-Length")
+        if cl_header is None:
+            self._json_response(411, {"ok": False, "error": "Content-Length required"})
+            return
+        try:
+            length = int(cl_header)
+        except (TypeError, ValueError):
+            self._json_response(400, {"ok": False, "error": "Invalid Content-Length"})
+            return
+        if length < 0:
+            self._json_response(400, {"ok": False, "error": "Invalid Content-Length"})
+            return
+        if length > MAX_REQUEST_BODY_BYTES:
+            self._json_response(
+                413,
+                {
+                    "ok": False,
+                    "error": (
+                        f"Request body too large "
+                        f"(max {MAX_REQUEST_BODY_BYTES} bytes)"
+                    ),
+                },
+            )
+            return
         raw = self.rfile.read(length) if length else b"{}"
 
         if parsed.path == "/api/generate":
@@ -301,6 +337,7 @@ class GuigenHandler(SimpleHTTPRequestHandler):
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                 for rel, content in sorted(files.items()):
+                    validate_zip_entry_name(rel)
                     zf.writestr(rel, content)
             payload = buf.getvalue()
             self.send_response(200)
@@ -345,6 +382,15 @@ def cmd_ui(args: argparse.Namespace) -> int:
     url = f"http://127.0.0.1:{port}/" if host in ("0.0.0.0", "::") else f"http://{host}:{port}/"
     header(f"ui  v{__version__}")
     ok(f"Web UI running at  {C.BOLD}{C.CYAN}{url}{C.RESET}")
+    if host in ("0.0.0.0", "::", "[::]"):
+        warn(
+            "guigenmc UI is listening on all network interfaces. "
+            "The API has no authentication."
+        )
+        warn(
+            "Only use --host 0.0.0.0 in trusted or isolated environments "
+            "(e.g. GitHub Codespaces with port forwarding)."
+        )
     info("Press Ctrl+C to stop.")
     print()
 

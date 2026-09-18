@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from .components import mk_text
+from .security import validate_identifier
 
 VALID_WIDGET_KINDS = [
     "button",
@@ -541,11 +542,16 @@ def loader_widget(raw: Any) -> dict[str, Any]:
     cmd_raw = raw.get("custom_model_data", raw.get("cmd"))
     custom_model_data = int(cmd_raw) if cmd_raw is not None else None
 
+    action_id_raw = str(raw.get("action_id", raw.get("id", "")))
+    if action_id_raw:
+        # action_id becomes a function filename under click/; enforce identifier rules.
+        validate_identifier(action_id_raw, "action_id")
+
     w = mk_widget(
         slot=slot,
         kind=kind,
         item=str(raw.get("item", "minecraft:stone")),
-        action_id=str(raw.get("action_id", raw.get("id", ""))),
+        action_id=action_id_raw,
         name=loader_text(raw.get("name")),
         lore=loader_text_list(raw.get("lore")),
         commands=list(raw.get("commands") or []),
@@ -718,15 +724,17 @@ def loader_container(raw: Any) -> dict[str, Any]:
 def menu_from_dict(data: dict[str, Any]) -> dict[str, Any]:
     if "namespace" not in data or "menu_id" not in data:
         raise ValueError("config requires 'namespace' and 'menu_id'")
+    namespace = validate_identifier(str(data["namespace"]), "namespace")
+    menu_id = validate_identifier(str(data["menu_id"]), "menu_id")
     pages_raw = data.get("pages") or []
     if not isinstance(pages_raw, list) or not pages_raw:
         raise ValueError("config requires non-empty 'pages' list")
     pages = [loader_page(p, i) for i, p in enumerate(pages_raw)]
 
     menu: dict[str, Any] = {
-        "namespace": str(data["namespace"]),
-        "menu_id": str(data["menu_id"]),
-        "display_name": str(data.get("display_name", data["menu_id"])),
+        "namespace": namespace,
+        "menu_id": menu_id,
+        "display_name": str(data.get("display_name", menu_id)),
         "timer_ticks": int(data.get("timer_ticks", 900)),
         "follow": data.get("follow", True),
         "distance_close": float(data.get("distance_close", 32)),
@@ -748,6 +756,18 @@ def menu_from_dict(data: dict[str, Any]) -> dict[str, Any]:
 
     for page in menu["pages"]:
         apply_layout_fillers(page, menu)
+
+    # Final pass: every action_id that will become a path segment must be valid.
+    # Auto-generated ids (kind_slot, separator_N, close_menu, …) are already safe;
+    # user-supplied ones (including toggle/cycle scores used as action_id) are checked here.
+    for w in all_widgets(menu):
+        aid = resolved_action_id(w)
+        try:
+            validate_identifier(aid, "action_id")
+        except ValueError as e:
+            raise ValueError(
+                f'Widget at slot {w.get("slot")} (kind={w.get("kind")}): {e}'
+            ) from e
 
     return menu
 
