@@ -1437,6 +1437,7 @@ function generateOpen(menu, out) {
   const nbt = containerSummonNbt(menu.container, [`${menu.namespace}.menu`, menuTag(menu)], menu.display_name);
   const lines = [
     "# Auto-generated open",
+    `advancement revoke @s only ${menu.namespace}:menu/${menu.menu_id}/opener`,
     `function ${menuFunctionPrefix(menu)}/close`,
     "",
     `summon ${containerEntityId(menu.container)} ~ ~ ~ ${nbt}`,
@@ -1485,20 +1486,52 @@ function generateClose(menu, out) {
 
 function generateGiveOpener(menu, out) {
   const name = (menu.opener_name || "GUI Menu Key").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  const lore = (menu.opener_lore || `Run /function ${menuFunctionPrefix(menu)}/open`)
+  const lore = (menu.opener_lore || "Right-click to open the menu")
     .replace(/\\/g, "\\\\")
     .replace(/"/g, '\\"');
+  const components =
+    `custom_name={text:"${name}",italic:false,color:"gold"},` +
+    `lore=[{text:"${lore}",italic:false,color:"gray"}],` +
+    "custom_data={guigen:{opener:1b}}," +
+    'consumable={consume_seconds:0,animation:"none",has_consume_particles:0},' +
+    'use_remainder={id:"minecraft:knowledge_book",count:1,components:{' +
+    `custom_name:{text:"${name}",italic:false,color:"gold"},` +
+    `lore:[{text:"${lore}",italic:false,color:"gray"}],` +
+    "custom_data:{guigen:{opener:1b}}," +
+    'consumable:{consume_seconds:0,animation:"none",has_consume_particles:0}' +
+    "}}";
   const lines = [
     "# Auto-generated give_opener",
-    "give @s minecraft:knowledge_book[" +
-      `custom_name={text:"${name}",italic:false,color:"gold"},` +
-      `lore=[{text:"${lore}",italic:false,color:"gray"}],` +
-      "custom_data={guigen:{opener:1b}}] 1",
+    `give @s minecraft:knowledge_book[${components}] 1`,
     "",
-    `tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},{"text":"You received a Menu Key.","color":"gold"}]`,
+    `tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},{"text":"You received a Menu Key. Right-click to open.","color":"gold"}]`,
     "",
   ];
   out.set(`${menuDirPath(menu)}/give_opener.mcfunction`, lines.join("\n"));
+
+  // Advancement: right-click (consume) opener book → open menu
+  const adv = {
+    criteria: {
+      on_right_click: {
+        trigger: "minecraft:consume_item",
+        conditions: {
+          item: {
+            items: "minecraft:knowledge_book",
+            predicates: {
+              "minecraft:custom_data": "{guigen:{opener:1b}}",
+            },
+          },
+        },
+      },
+    },
+    rewards: {
+      function: `${menu.namespace}:menu/${menu.menu_id}/open`,
+    },
+  };
+  out.set(
+    `data/${menu.namespace}/advancement/menu/${menu.menu_id}/opener.json`,
+    JSON.stringify(adv, null, 2) + "\n"
+  );
 }
 
 function generateTags(menu, out) {
