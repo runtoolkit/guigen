@@ -14,9 +14,15 @@ from guigenmc.cli import MAX_REQUEST_BODY_BYTES, GuigenHandler
 from guigenmc.generators import generate_datapack
 from guigenmc.models import load_menu_from_json_string, menu_from_dict
 from guigenmc.security import (
+    MAX_GENERATED_FILES,
+    MAX_JSON_DEPTH,
     assert_generated_paths_safe,
+    assert_generated_size_limits,
+    check_json_structure,
+    check_no_symlink_escape,
     ensure_within_output_root,
     is_safe_relative_path,
+    safe_write_text,
     validate_identifier,
     validate_zip_entry_name,
 )
@@ -243,6 +249,93 @@ class TestHttpLimits(unittest.TestCase):
         self.assertEqual(len(handler.responses), 1)
         status, body = handler.responses[0]
         self.assertEqual(status, 411)
+
+
+class TestSymlinkSafety(unittest.TestCase):
+    def test_safe_write_normal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "pack"
+            out.mkdir()
+            dest = safe_write_text(out, "data/ns/x.mcfunction", "say hi\n")
+            self.assertTrue(dest.is_file())
+            self.assertEqual(dest.read_text(encoding="utf-8"), "say hi\n")
+            self.assertTrue(out.resolve() in dest.resolve().parents)
+
+    def test_refuses_symlink_file_escape(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            out = root / "pack"
+            out.mkdir()
+            outside = root / "outside.txt"
+            outside.write_text("secret", encoding="utf-8")
+            # Place a symlink inside the output tree pointing outside.
+            link = out / "evil.mcfunction"
+            link.symlink_to(outside)
+            with self.assertRaises(ValueError) as cm:
+                safe_write_text(out, "evil.mcfunction", "pwned\n")
+            msg = str(cm.exception).lower()
+            self.assertTrue(
+                "symlink" in msg or "escapes" in msg or "outside" in msg,
+                f"unexpected message: {cm.exception}",
+            )
+            # Outside file must remain untouched.
+            self.assertEqual(outside.read_text(encoding="utf-8"), "secret")
+
+    def test_refuses_symlink_parent_escape(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            out = root / "pack"
+            out.mkdir()
+            outside_dir = root / "outside_dir"
+            outside_dir.mkdir()
+            # data -> outside_dir
+            (out / "data").symlink_to(outside_dir)
+            with self.assertRaises(ValueError):
+                check_no_symlink_escape(out, "data/ns/x.mcfunction")
+
+
+class TestJsonStructureLimits(unittest.TestCase):
+    def test_normal_json_ok(self):
+        check_json_structure({"a": 1, "b": [1, 2, {"c": 3}]})
+
+    def test_depth_rejected(self):
+        obj: object = "leaf"
+        for _ in range(MAX_JSON_DEPTH + 5):
+            obj = [obj]
+        with self.assertRaises(ValueError) as cm:
+            check_json_structure(obj)
+        self.assertIn("depth", str(cm.exception).lower())
+
+    def test_load_menu_rejects_deep_json(self):
+        # Build nested structure that exceeds depth but stays small in bytes.
+        inner = {"kind": "close", "slot": 0}
+        page = {"index": 0, "name": "P", "widgets": [inner]}
+        # Nest under a deep "extra" key chain so root still has namespace/menu_id.
+        deep: object = "x"
+        for _ in range(MAX_JSON_DEPTH + 5):
+            deep = {"n": deep}
+        cfg = {
+            "namespace": "mymod",
+            "menu_id": "shop",
+            "pages": [page],
+            "extra_deep": deep,
+        }
+        with self.assertRaises(ValueError) as cm:
+            load_menu_from_json_string(json.dumps(cfg))
+        self.assertIn("depth", str(cm.exception).lower())
+
+
+class TestOutputSizeLimits(unittest.TestCase):
+    def test_normal_output_within_limits(self):
+        menu = menu_from_dict(_minimal_config())
+        files = generate_datapack(menu)
+        assert_generated_size_limits(files)
+
+    def test_too_many_files_rejected(self):
+        huge = {f"f{i}.txt": "x" for i in range(MAX_GENERATED_FILES + 1)}
+        with self.assertRaises(ValueError) as cm:
+            assert_generated_size_limits(huge)
+        self.assertIn("too many files", str(cm.exception).lower())
 
 
 if __name__ == "__main__":

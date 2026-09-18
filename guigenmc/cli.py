@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 from . import __version__
 from .generators import generate_datapack, summarize
 from .models import load_menu_from_file, load_menu_from_json_string
-from .security import ensure_within_output_root, validate_zip_entry_name
+from .security import safe_write_text, validate_zip_entry_name
 from .validate import validate_menu
 
 # Max POST body size for UI API endpoints (bytes). ~2 MiB is ample for configs.
@@ -136,9 +136,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             shutil.rmtree(out_dir)
         try:
             for rel, content in files.items():
-                dest = ensure_within_output_root(out_dir, rel)
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_text(content, encoding="utf-8")
+                safe_write_text(out_dir, rel, content)
         except ValueError as e:
             err(f"Unsafe path in generated datapack: {e}")
             return 1

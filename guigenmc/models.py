@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from .components import mk_text
-from .security import validate_identifier
+from .security import check_json_structure, validate_identifier
 
 VALID_WIDGET_KINDS = [
     "button",
@@ -776,6 +776,7 @@ def load_menu_from_json_string(json_text: str) -> dict[str, Any]:
     data = json.loads(json_text)
     if not isinstance(data, dict):
         raise TypeError("JSON root must be an object")
+    check_json_structure(data)
     return menu_from_dict(data)
 
 
