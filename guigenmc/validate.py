@@ -78,6 +78,16 @@ def validate_menu(menu: dict[str, Any]) -> list[str]:
             warnings.append(
                 f'Widget "{resolved_action_id(w)}" has count={w.get("count")} (>64).'
             )
+        if w["kind"] == "link" and not w.get("url"):
+            warnings.append(
+                f'Widget "{resolved_action_id(w)}" (link) has no url — click will do nothing useful.'
+            )
+        if w["kind"] == "cycle":
+            opts = (w.get("cycle") or {}).get("options") or []
+            if len(opts) < 2:
+                warnings.append(
+                    f'Widget "{resolved_action_id(w)}" (cycle) needs at least 2 options.'
+                )
 
     seen_action_ids: dict[str, list[dict[str, Any]]] = {}
     for w in interactive_widgets(menu):

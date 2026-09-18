@@ -18,6 +18,8 @@ VALID_WIDGET_KINDS = [
     "close",
     "confirm",
     "random",
+    "link",
+    "cycle",
 ]
 
 WIDGET_KIND_ALIASES = {
@@ -30,6 +32,10 @@ WIDGET_KIND_ALIASES = {
     "page": "nav",
     "bar": "progress",
     "stepper": "counter",
+    "url": "link",
+    "hyperlink": "link",
+    "selector": "cycle",
+    "carousel": "cycle",
 }
 
 VALID_CONDITION_TYPES = [
@@ -38,6 +44,7 @@ VALID_CONDITION_TYPES = [
     "score",
     "has_tag",
     "gamemode",
+    "has_advancement",
 ]
 
 CONTAINER_TYPES: dict[str, tuple[str, int]] = {
@@ -137,6 +144,24 @@ def components_for_toggle(w: dict[str, Any], state: int) -> tuple[str, dict[str,
     )
 
 
+def components_for_cycle(w: dict[str, Any], index: int) -> tuple[str, dict[str, Any]]:
+    from .components import mk_item_components
+
+    opts = w["cycle"]["options"]
+    opt = opts[index % len(opts)]
+    data = gui_custom_data(w)
+    return (
+        opt["item"],
+        mk_item_components(
+            custom_name=opt["name"],
+            lore=list(opt.get("lore") or []),
+            custom_data=data,
+            enchanted=bool(opt.get("enchanted", w.get("enchanted"))),
+            custom_model_data=opt.get("custom_model_data", w.get("custom_model_data")),
+        ),
+    )
+
+
 def is_interactive(w: dict[str, Any]) -> bool:
     return w["kind"] not in ("label", "separator", "progress")
 
@@ -187,6 +212,9 @@ def mk_widget(**fields: Any) -> dict[str, Any]:
         "progress_full_item": "minecraft:lime_stained_glass_pane",
         "progress_empty_item": "minecraft:gray_stained_glass_pane",
         "random": None,
+        "url": None,
+        "link_text": None,
+        "cycle": None,
         "clickable": True,
         "enchanted": False,
         "custom_model_data": None,
@@ -311,6 +339,8 @@ def collect_scores(m: dict[str, Any]) -> list[str]:
             scores.append(w["counter_score"])
         if w.get("progress_score") and w["progress_score"] not in scores:
             scores.append(w["progress_score"])
+        if w.get("cycle") and w["cycle"]["score"] not in scores:
+            scores.append(w["cycle"]["score"])
     return scores
 
 
@@ -385,6 +415,7 @@ def loader_condition(raw: Any) -> dict[str, Any] | None:
         "matches": raw.get("matches"),
         "tag": raw.get("tag"),
         "gamemode": raw.get("gamemode"),
+        "advancement": raw.get("advancement"),
         "fail_message": loader_text(raw.get("fail_message")),
     }
 
@@ -450,6 +481,39 @@ def loader_random(raw: Any) -> dict[str, Any]:
     if not isinstance(rewards_raw, list) or not rewards_raw:
         raise ValueError("random widget requires a non-empty 'rewards' list")
     return {"rewards": [loader_random_reward(r, i) for i, r in enumerate(rewards_raw)]}
+
+
+def loader_cycle_option(raw: Any, index: int) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise TypeError(f"cycle.options[{index}] must be an object")
+    if "item" not in raw:
+        raise ValueError(f"cycle.options[{index}] requires 'item'")
+    if "name" not in raw:
+        raise ValueError(f"cycle.options[{index}] requires 'name'")
+    return {
+        "item": str(raw["item"]),
+        "name": loader_text(raw["name"]),
+        "lore": loader_text_list(raw.get("lore")),
+        "commands": list(raw.get("commands") or []),
+        "functions": list(raw.get("functions") or []),
+        "enchanted": bool(raw.get("enchanted", False)),
+        "custom_model_data": int(raw["custom_model_data"]) if raw.get("custom_model_data") is not None else None,
+    }
+
+
+def loader_cycle(raw: Any) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise TypeError("cycle must be an object")
+    if "score" not in raw:
+        raise ValueError("cycle requires 'score'")
+    options_raw = raw.get("options") or []
+    if not isinstance(options_raw, list) or len(options_raw) < 2:
+        raise ValueError("cycle requires at least 2 options")
+    return {
+        "score": str(raw["score"]),
+        "options": [loader_cycle_option(o, i) for i, o in enumerate(options_raw)],
+        "wrap": bool(raw.get("wrap", True)),
+    }
 
 
 def loader_widget(raw: Any) -> dict[str, Any]:
@@ -537,6 +601,41 @@ def loader_widget(raw: Any) -> dict[str, Any]:
         if "random" not in raw:
             raise ValueError("random widget requires 'random' object")
         w["random"] = loader_random(raw["random"])
+
+    if kind == "link":
+        url = raw.get("url") or raw.get("link")
+        if not url:
+            raise ValueError("link widget requires 'url'")
+        w["url"] = str(url)
+        w["link_text"] = loader_text(raw.get("link_text") or raw.get("message"))
+        if w["name"] is None:
+            w["name"] = mk_text("Open Link", color="aqua")
+        if not w["lore"]:
+            w["lore"] = [mk_text("Click to open URL", color="gray")]
+        if w["item"] == "minecraft:stone":
+            w["item"] = "minecraft:writable_book"
+        if not w["action_id"]:
+            w["action_id"] = f"link_{slot}"
+
+    if kind == "cycle":
+        cycle_raw = raw.get("cycle")
+        if cycle_raw is None and ("options" in raw or "score" in raw):
+            # allow flat form: { kind: "cycle", score: "...", options: [...] }
+            cycle_raw = {
+                "score": raw.get("score") or raw.get("cycle_score"),
+                "options": raw.get("options"),
+                "wrap": raw.get("wrap", True),
+            }
+        if not cycle_raw:
+            raise ValueError("cycle widget requires 'cycle' object (or score + options)")
+        w["cycle"] = loader_cycle(cycle_raw)
+        first = w["cycle"]["options"][0]
+        if not w["item"] or w["item"] == "minecraft:stone":
+            w["item"] = first["item"]
+        if w["name"] is None:
+            w["name"] = first["name"]
+        if not w["action_id"]:
+            w["action_id"] = w["cycle"]["score"]
 
     if kind == "nav" and w["target_page"] is None:
         raise ValueError("nav widget requires target_page")

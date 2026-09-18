@@ -583,6 +583,19 @@ function componentsForToggle(w, state) {
   return [t.on_item, mkItemComponents({ custom_name: t.on_name, lore: t.on_lore.slice(), custom_data: data })];
 }
 
+function componentsForCycle(w, index) {
+  const opts = w.cycle.options;
+  const opt = opts[index % opts.length];
+  const data = guiCustomData(w);
+  return [opt.item, mkItemComponents({
+    custom_name: opt.name,
+    lore: (opt.lore || []).slice(),
+    custom_data: data,
+    enchanted: !!opt.enchanted,
+    custom_model_data: opt.custom_model_data,
+  })];
+}
+
 function isInteractive(w) {
   return !["label", "separator", "progress"].includes(w.kind);
 }
@@ -695,6 +708,7 @@ function collectScores(m) {
     if (w.toggle && !scores.includes(w.toggle.score)) scores.push(w.toggle.score);
     if (w.counter_score && !scores.includes(w.counter_score)) scores.push(w.counter_score);
     if (w.progress_score && !scores.includes(w.progress_score)) scores.push(w.progress_score);
+    if (w.cycle && !scores.includes(w.cycle.score)) scores.push(w.cycle.score);
   }
   return scores;
 }
@@ -726,7 +740,7 @@ function loaderTextList(raw) {
   return out;
 }
 
-const VALID_CONDITION_TYPES = ["item_count_lt", "item_count_gte", "score", "has_tag", "gamemode"];
+const VALID_CONDITION_TYPES = ["item_count_lt", "item_count_gte", "score", "has_tag", "gamemode", "has_advancement"];
 
 function loaderCondition(raw) {
   if (raw == null) return null;
@@ -742,6 +756,7 @@ function loaderCondition(raw) {
     matches: raw.matches ?? null,
     tag: raw.tag ?? null,
     gamemode: raw.gamemode ?? null,
+    advancement: raw.advancement ?? null,
     fail_message: loaderText(raw.fail_message),
   };
 }
@@ -790,10 +805,15 @@ const WIDGET_KIND_ALIASES = {
   page: "nav",
   bar: "progress",
   stepper: "counter",
+  url: "link",
+  hyperlink: "link",
+  selector: "cycle",
+  carousel: "cycle",
 };
 
 const VALID_WIDGET_KINDS = [
   "button", "label", "separator", "toggle", "counter", "nav", "progress", "close", "confirm", "random",
+  "link", "cycle",
 ];
 
 function loaderRandomReward(raw, index) {
@@ -875,6 +895,50 @@ function loaderWidget(raw) {
   if (kind === "random") {
     if (!("random" in raw)) throw new Error("random widget requires 'random' object");
     w.random = loaderRandom(raw.random);
+  }
+
+  if (kind === "link") {
+    const url = raw.url || raw.link;
+    if (!url) throw new Error("link widget requires 'url'");
+    w.url = String(url);
+    w.link_text = loaderText(raw.link_text || raw.message);
+    if (w.name == null) w.name = mkText("Open Link", { color: "aqua" });
+    if (!w.lore.length) w.lore = [mkText("Click to open URL", { color: "gray" })];
+    if (w.item === "minecraft:stone") w.item = "minecraft:writable_book";
+    if (!w.action_id) w.action_id = `link_${slot}`;
+  }
+
+  if (kind === "cycle") {
+    let cycleRaw = raw.cycle;
+    if (cycleRaw == null && (raw.options || raw.score)) {
+      cycleRaw = { score: raw.score || raw.cycle_score, options: raw.options, wrap: raw.wrap !== false };
+    }
+    if (!cycleRaw) throw new Error("cycle widget requires 'cycle' object (or score + options)");
+    if (!cycleRaw.score) throw new Error("cycle requires 'score'");
+    const opts = cycleRaw.options || [];
+    if (!Array.isArray(opts) || opts.length < 2) throw new Error("cycle requires at least 2 options");
+    w.cycle = {
+      score: String(cycleRaw.score),
+      wrap: cycleRaw.wrap !== false,
+      options: opts.map((o, i) => {
+        if (!o || typeof o !== "object") throw new TypeError(`cycle.options[${i}] must be an object`);
+        if (!o.item) throw new Error(`cycle.options[${i}] requires 'item'`);
+        if (!o.name) throw new Error(`cycle.options[${i}] requires 'name'`);
+        return {
+          item: String(o.item),
+          name: loaderText(o.name),
+          lore: loaderTextList(o.lore),
+          commands: (o.commands || []).slice(),
+          functions: (o.functions || []).slice(),
+          enchanted: !!o.enchanted,
+          custom_model_data: o.custom_model_data != null ? parseInt(o.custom_model_data, 10) : null,
+        };
+      }),
+    };
+    const first = w.cycle.options[0];
+    if (!w.item || w.item === "minecraft:stone") w.item = first.item;
+    if (w.name == null) w.name = first.name;
+    if (!w.action_id) w.action_id = w.cycle.score;
   }
 
   if (kind === "nav" && w.target_page == null) throw new Error("nav widget requires target_page");
@@ -986,6 +1050,18 @@ function emitToggle(menu, w) {
   return lines;
 }
 
+function emitCycle(menu, w) {
+  const lines = [];
+  const opts = w.cycle.options;
+  const score = w.cycle.score;
+  for (let i = 0; i < opts.length; i++) {
+    const [item, comps] = componentsForCycle(w, i);
+    const cmd = itemReplaceCommand(cartSelector(menu), w.slot, item, comps);
+    lines.push(`execute if score @s ${score} matches ${i} run ${cmd}`);
+  }
+  return lines;
+}
+
 function emitProgress(menu, w) {
   const lines = [];
   const width = w.progress_width;
@@ -1026,6 +1102,7 @@ function generatePageFills(menu, out) {
     for (const w of page.widgets) {
       lines.push(`# slot ${w.slot}: ${resolvedActionId(w)} (${w.kind})`);
       if (w.kind === "toggle") lines.push(...emitToggle(menu, w));
+      else if (w.kind === "cycle") lines.push(...emitCycle(menu, w));
       else if (w.kind === "progress") lines.push(...emitProgress(menu, w));
       else lines.push(...emitStatic(menu, w));
       lines.push("");
@@ -1231,6 +1308,43 @@ function handlerFor(menu, w) {
     return lines;
   }
 
+  if (w.kind === "link") {
+    lines.push(...playsound(w.sound));
+    const url = w.url || "";
+    const lt = w.link_text || mkText("Click here to open", { color: "aqua" });
+    // Minecraft 1.21.5+: clickEvent → click_event, value → url
+    const body = `{"text":"${escapeJson(lt.text || "Open link")}","italic":false,"color":"${lt.color || "aqua"}","underlined":true,"click_event":{"action":"open_url","url":"${escapeJson(url)}"}}`;
+    lines.push(`tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},${body}]`);
+    if (w.success_message) lines.push(tellrawLine(w.success_message));
+    lines.push(`function ${menuFunctionPrefix(menu)}/fill`);
+    return lines;
+  }
+
+  if (w.kind === "cycle") {
+    const c = w.cycle;
+    const score = c.score;
+    const n = c.options.length;
+    lines.push(...playsound(w.sound));
+    lines.push(`scoreboard players add @s ${score} 1`);
+    if (c.wrap !== false) {
+      lines.push(`execute if score @s ${score} matches ${n}.. run scoreboard players set @s ${score} 0`);
+    } else {
+      lines.push(`execute if score @s ${score} matches ${n}.. run scoreboard players set @s ${score} ${n - 1}`);
+    }
+    for (let i = 0; i < c.options.length; i++) {
+      const opt = c.options[i];
+      const guard = `execute if score @s ${score} matches ${i} run `;
+      for (const cmd of opt.commands || []) lines.push(`${guard}${cmd}`);
+      for (const fn of opt.functions || []) lines.push(`${guard}function ${fn}`);
+    }
+    for (let i = 0; i < c.options.length; i++) {
+      const name = c.options[i].name || mkText(`Option ${i}`, { color: "yellow" });
+      lines.push(`execute if score @s ${score} matches ${i} run ${tellrawLine(name)}`);
+    }
+    lines.push(`function ${menuFunctionPrefix(menu)}/fill`);
+    return lines;
+  }
+
   if (w.condition != null) {
     const cond = w.condition;
     const fail = cond.fail_message || mkText("Condition failed.", { color: "red" });
@@ -1264,6 +1378,11 @@ function handlerFor(menu, w) {
       const ok = `execute if entity @s[gamemode=${cond.gamemode}] run `;
       lines.push(...successBlock(ok));
       lines.push(`execute unless entity @s[gamemode=${cond.gamemode}] run ${tellrawLine(fail)}`);
+    } else if (cond.type === "has_advancement") {
+      const adv = cond.advancement || "";
+      const ok = `execute if entity @s[advancements={${adv}=true}] run `;
+      lines.push(...successBlock(ok));
+      lines.push(`execute unless entity @s[advancements={${adv}=true}] run ${tellrawLine(fail)}`);
     } else {
       lines.push(...emitActions(w));
       if (w.success_message) lines.push(tellrawLine(w.success_message));
@@ -1330,6 +1449,7 @@ function generateOpen(menu, out) {
     if (w.toggle) scoresToInit.push(w.toggle.score);
     if (w.counter_score) scoresToInit.push(w.counter_score);
     if (w.progress_score) scoresToInit.push(w.progress_score);
+    if (w.cycle) scoresToInit.push(w.cycle.score);
     for (const sc of scoresToInit) {
       if (inited.has(sc)) continue;
       inited.add(sc);
