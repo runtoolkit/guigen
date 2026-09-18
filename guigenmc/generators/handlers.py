@@ -223,6 +223,64 @@ def handler_for(menu: dict[str, Any], w: dict[str, Any]) -> list[str]:
         )
         return lines
 
+    if w["kind"] == "link":
+        lines.extend(playsound(w.get("sound")))
+        url = w.get("url") or ""
+        link_text = w.get("link_text") or {
+            "text": "Click here to open",
+            "italic": False,
+            "color": "aqua",
+            "bold": None,
+            "underlined": True,
+        }
+        # Minecraft 1.21.5+: clickEvent → click_event, value → url
+        body = (
+            f'{{"text":"{escape_json(link_text.get("text") or "Open link")}",'
+            f'"italic":false,'
+            f'"color":"{link_text.get("color") or "aqua"}",'
+            f'"underlined":true,'
+            f'"click_event":{{"action":"open_url","url":"{escape_json(url)}"}}'
+            f'}}'
+        )
+        lines.append(
+            f'tellraw @s [{{"text":"[GUI-GENERATOR] ","color":"gray"}},{body}]'
+        )
+        if w.get("success_message"):
+            lines.append(tellraw_line(w["success_message"]))
+        # Keep menu open
+        lines.append(f"function {menu_function_prefix(menu)}/fill")
+        return lines
+
+    if w["kind"] == "cycle":
+        c = w["cycle"]
+        score = c["score"]
+        n = len(c["options"])
+        lines.extend(playsound(w.get("sound")))
+        lines.append(f"scoreboard players add @s {score} 1")
+        if c.get("wrap", True):
+            lines.append(
+                f"execute if score @s {score} matches {n}.. run scoreboard players set @s {score} 0"
+            )
+        else:
+            lines.append(
+                f"execute if score @s {score} matches {n}.. run scoreboard players set @s {score} {n - 1}"
+            )
+        # Run option-specific commands
+        for i, opt in enumerate(c["options"]):
+            guard = f"execute if score @s {score} matches {i} run "
+            for cmd in opt.get("commands") or []:
+                lines.append(f"{guard}{cmd}")
+            for fn in opt.get("functions") or []:
+                lines.append(f"{guard}function {fn}")
+        # Feedback with current option name
+        for i, opt in enumerate(c["options"]):
+            name = opt.get("name") or {"text": f"Option {i}", "color": "yellow"}
+            lines.append(
+                f"execute if score @s {score} matches {i} run {tellraw_line(name)}"
+            )
+        lines.append(f"function {menu_function_prefix(menu)}/fill")
+        return lines
+
     if w.get("condition") is not None:
         cond = w["condition"]
         fail = cond.get("fail_message") or {
@@ -270,6 +328,13 @@ def handler_for(menu: dict[str, Any], w: dict[str, Any]) -> list[str]:
             lines.extend(success_block(ok))
             lines.append(
                 f"execute unless entity @s[gamemode={cond['gamemode']}] run {tellraw_line(fail)}"
+            )
+        elif cond["type"] == "has_advancement":
+            adv = cond.get("advancement") or ""
+            ok = f"execute if entity @s[advancements={{{adv}=true}}] run "
+            lines.extend(success_block(ok))
+            lines.append(
+                f"execute unless entity @s[advancements={{{adv}=true}}] run {tellraw_line(fail)}"
             )
         else:
             lines.extend(emit_actions(w))

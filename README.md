@@ -133,8 +133,59 @@ Minimal `config.json`:
 | `confirm` | Go to a confirm page |
 | `close` | Close the menu |
 | `random` | Weighted random rewards |
+| `link` | Clickable external URL (tellraw `open_url`) |
+| `cycle` | Cycle through options (score-based selector) |
 
-Also supports: cost, cooldown, conditions, sounds, multi-page menus, hopper/chest minecart containers.
+Also supports: cost, cooldown, conditions (`item_count_*`, `score`, `has_tag`, `gamemode`, **`has_advancement`**), sounds, multi-page menus, hopper/chest minecart containers.
+
+### New widget examples
+
+**Link**
+
+```json
+{
+  "kind": "link",
+  "slot": 11,
+  "item": "minecraft:writable_book",
+  "name": { "text": "Discord", "color": "aqua" },
+  "url": "https://discord.gg/example",
+  "link_text": { "text": "Join our Discord", "color": "aqua" }
+}
+```
+
+**Cycle**
+
+```json
+{
+  "kind": "cycle",
+  "slot": 13,
+  "cycle": {
+    "score": "difficulty",
+    "options": [
+      { "item": "minecraft:wooden_sword", "name": { "text": "Easy", "color": "green" } },
+      { "item": "minecraft:iron_sword", "name": { "text": "Normal", "color": "yellow" } },
+      { "item": "minecraft:diamond_sword", "name": { "text": "Hard", "color": "red" } }
+    ]
+  }
+}
+```
+
+**has_advancement condition**
+
+```json
+{
+  "kind": "button",
+  "slot": 15,
+  "item": "minecraft:nether_star",
+  "name": { "text": "Claim Reward" },
+  "commands": ["give @s minecraft:diamond 5"],
+  "condition": {
+    "type": "has_advancement",
+    "advancement": "minecraft:story/mine_diamond",
+    "fail_message": { "text": "You need the Mine Diamond advancement!", "color": "red" }
+  }
+}
+```
 
 ---
 

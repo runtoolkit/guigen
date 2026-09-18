@@ -80,6 +80,8 @@ def generate_open(menu: dict[str, Any], out: dict[str, str]) -> None:
             scores_to_init.append(w["counter_score"])
         if w.get("progress_score"):
             scores_to_init.append(w["progress_score"])
+        if w.get("cycle"):
+            scores_to_init.append(w["cycle"]["score"])
         for sc in scores_to_init:
             if sc in inited:
                 continue

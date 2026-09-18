@@ -6,6 +6,7 @@ from typing import Any
 
 from ..components import item_replace_command, mk_item_components
 from ..models import (
+    components_for_cycle,
     components_for_toggle,
     container_entity_id,
     container_slot_count,
@@ -47,6 +48,17 @@ def emit_toggle(menu: dict[str, Any], w: dict[str, Any]) -> list[str]:
         item, comps = components_for_toggle(w, state)
         cmd = item_replace_command(cart_selector(menu), w["slot"], item, comps)
         lines.append(f"execute if score @s {w['toggle']['score']} matches {state} run {cmd}")
+    return lines
+
+
+def emit_cycle(menu: dict[str, Any], w: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
+    opts = w["cycle"]["options"]
+    score = w["cycle"]["score"]
+    for i, _ in enumerate(opts):
+        item, comps = components_for_cycle(w, i)
+        cmd = item_replace_command(cart_selector(menu), w["slot"], item, comps)
+        lines.append(f"execute if score @s {score} matches {i} run {cmd}")
     return lines
 
 
@@ -97,6 +109,8 @@ def generate_page_fills(menu: dict[str, Any], out: dict[str, str]) -> None:
             lines.append(f"# slot {w['slot']}: {resolved_action_id(w)} ({w['kind']})")
             if w["kind"] == "toggle":
                 lines.extend(emit_toggle(menu, w))
+            elif w["kind"] == "cycle":
+                lines.extend(emit_cycle(menu, w))
             elif w["kind"] == "progress":
                 lines.extend(emit_progress(menu, w))
             else:
