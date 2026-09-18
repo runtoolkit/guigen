@@ -742,8 +742,6 @@ def menu_from_dict(data: dict[str, Any]) -> dict[str, Any]:
         "pages": pages,
         "extra_scores": list(data.get("extra_scores") or []),
         "pack_description": data.get("pack_description"),
-        "opener_name": data.get("opener_name"),
-        "opener_lore": data.get("opener_lore"),
         "on_open": list(data.get("on_open") or []),
         "on_close": list(data.get("on_close") or []),
         "default_filler": data.get(

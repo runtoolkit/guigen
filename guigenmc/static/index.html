@@ -1028,8 +1028,6 @@ function menuFromDict(data) {
     pages,
     extra_scores: (data.extra_scores || []).slice(),
     pack_description: data.pack_description ?? null,
-    opener_name: data.opener_name ?? null,
-    opener_lore: data.opener_lore ?? null,
   };
 }
 
@@ -1458,7 +1456,6 @@ function generateOpen(menu, out) {
   const nbt = containerSummonNbt(menu.container, [`${menu.namespace}.menu`, menuTag(menu)], menu.display_name);
   const lines = [
     "# Auto-generated open",
-    `advancement revoke @s only ${menu.namespace}:menu/${menu.menu_id}/opener`,
     `function ${menuFunctionPrefix(menu)}/close`,
     "",
     `summon ${containerEntityId(menu.container)} ~ ~ ~ ${nbt}`,
@@ -1505,50 +1502,6 @@ function generateClose(menu, out) {
   out.set(`${menuDirPath(menu)}/close.mcfunction`, lines.join("\n"));
 }
 
-function generateGiveOpener(menu, out) {
-  const name = (menu.opener_name || "GUI Menu Key").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  const lore = (menu.opener_lore || "Right-click to open the menu")
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"');
-  const components =
-    `custom_name={text:"${name}",italic:false,color:"gold"},` +
-    `lore=[{text:"${lore}",italic:false,color:"gray"}],` +
-    "custom_data={guigen:{opener:1b}}," +
-    'consumable={consume_seconds:1,animation:"none",has_consume_particles:0b}' +
-    "]";
-  const lines = [
-    "# Auto-generated give_opener",
-    `give @s minecraft:knowledge_book[${components}] 1`,
-    "",
-    `tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},{"text":"You received a Menu Key. Right-click to open.","color":"gold"}]`,
-    "",
-  ];
-  out.set(`${menuDirPath(menu)}/give_opener.mcfunction`, lines.join("\n"));
-
-  // Advancement: right-click (consume) opener book → open menu
-  const adv = {
-    criteria: {
-      on_right_click: {
-        trigger: "minecraft:consume_item",
-        conditions: {
-          item: {
-            items: "minecraft:knowledge_book",
-            predicates: {
-              "minecraft:custom_data": "{guigen:{opener:1b}}",
-            },
-          },
-        },
-      },
-    },
-    rewards: {
-      function: `${menu.namespace}:menu/${menu.menu_id}/open`,
-    },
-  };
-  out.set(
-    `data/${menu.namespace}/advancement/menu/${menu.menu_id}/opener.json`,
-    JSON.stringify(adv, null, 2) + "\n"
-  );
-}
 
 function generateTags(menu, out) {
   out.set(
@@ -1698,7 +1651,6 @@ function generateDatapack(menu) {
   generateLoad(menu, out);
   generateOpen(menu, out);
   generateClose(menu, out);
-  generateGiveOpener(menu, out);
   generateFillRouter(menu, out);
   generatePageFills(menu, out);
   generateHandlers(menu, out);
