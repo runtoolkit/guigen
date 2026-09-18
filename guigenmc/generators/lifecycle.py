@@ -1,4 +1,4 @@
-"""Load / open / close / opener / tags / pack.mcmeta generators."""
+"""Load / open / close / tags / pack.mcmeta generators."""
 
 from __future__ import annotations
 
@@ -61,8 +61,6 @@ def generate_open(menu: dict[str, Any], out: dict[str, str]) -> None:
         summon_coords = "~ ~ ~"
     lines = [
         "# Auto-generated open",
-        # Allow the opener advancement to fire again on the next right-click
-        f"advancement revoke @s only {menu['namespace']}:menu/{menu['menu_id']}/opener",
         f"function {menu_function_prefix(menu)}/close",
         "",
         f"summon {container_entity_id(menu['container'])} {summon_coords} {nbt}",
@@ -126,55 +124,6 @@ def generate_close(menu: dict[str, Any], out: dict[str, str]) -> None:
     lines.append("")
     out[f"{menu_dir_path(menu)}/close.mcfunction"] = "\n".join(lines)
 
-
-def generate_give_opener(menu: dict[str, Any], out: dict[str, str]) -> None:
-    name = (menu.get("opener_name") or "GUI Menu Key").replace("\\", "\\\\").replace('"', '\\"')
-    lore = (
-        menu.get("opener_lore") or "Right-click to open the menu"
-    ).replace("\\", "\\\\").replace('"', '\\"')
-    # Knowledge book that "consumes" instantly without particles, then is restored
-    # via use_remainder so the key is not destroyed. Advancement opener listens
-    # for consume_item and runs the open function.
-    components = (
-        f'custom_name={{text:"{name}",italic:false,color:"gold"}},'
-        f'lore=[{{text:"{lore}",italic:false,color:"gray"}}],'
-        "custom_data={guigen:{opener:1b}},"
-        'consumable={consume_seconds:0,animation:"none",has_consume_particles:0}'
-        "["
-    )
-    lines = [
-        "# Auto-generated give_opener",
-        f"give @s minecraft:knowledge_book[{components}] 1",
-        "",
-        'tellraw @s [{"text":"[GUI-GENERATOR] ","color":"gray"},'
-        '{"text":"You received a Menu Key. Right-click to open.","color":"gold"}]',
-        "",
-    ]
-    out[f"{menu_dir_path(menu)}/give_opener.mcfunction"] = "\n".join(lines)
-
-    # Advancement: right-click (consume) the opener book → open menu
-    ns = menu["namespace"]
-    mid = menu["menu_id"]
-    adv_path = f"data/{ns}/advancement/menu/{mid}/opener.json"
-    adv = {
-        "criteria": {
-            "on_right_click": {
-                "trigger": "minecraft:consume_item",
-                "conditions": {
-                    "item": {
-                        "items": "minecraft:knowledge_book",
-                        "predicates": {
-                            "minecraft:custom_data": "{guigen:{opener:1b}}"
-                        },
-                    }
-                },
-            }
-        },
-        "rewards": {
-            "function": f"{ns}:menu/{mid}/open"
-        },
-    }
-    out[adv_path] = json.dumps(adv, indent=2) + "\n"
 
 
 def generate_tags(menu: dict[str, Any], out: dict[str, str]) -> None:
